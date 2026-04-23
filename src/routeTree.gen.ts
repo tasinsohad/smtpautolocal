@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppServersRouteImport } from './routes/_app.servers'
+import { Route as AppDomainsRouteImport } from './routes/_app.domains'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -39,15 +40,22 @@ const AppServersRoute = AppServersRouteImport.update({
   path: '/servers',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDomainsRoute = AppDomainsRouteImport.update({
+  id: '/domains',
+  path: '/domains',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/auth': typeof AuthRoute
+  '/domains': typeof AppDomainsRoute
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/domains': typeof AppDomainsRoute
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
@@ -56,19 +64,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_app/domains': typeof AppDomainsRoute
   '/_app/servers': typeof AppServersRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/servers' | '/settings'
+  fullPaths: '/' | '/auth' | '/domains' | '/servers' | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/servers' | '/settings' | '/'
+  to: '/auth' | '/domains' | '/servers' | '/settings' | '/'
   id:
     | '__root__'
     | '/_app'
     | '/auth'
+    | '/_app/domains'
     | '/_app/servers'
     | '/_app/settings'
     | '/_app/'
@@ -116,16 +126,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppServersRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/domains': {
+      id: '/_app/domains'
+      path: '/domains'
+      fullPath: '/domains'
+      preLoaderRoute: typeof AppDomainsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppDomainsRoute: typeof AppDomainsRoute
   AppServersRoute: typeof AppServersRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDomainsRoute: AppDomainsRoute,
   AppServersRoute: AppServersRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
@@ -140,3 +159,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
