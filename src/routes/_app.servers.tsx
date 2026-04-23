@@ -41,7 +41,7 @@ function ServersPage() {
     queryFn: async () => {
       const { data, error } = await supabase.from("servers").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      return data as Srv[];
+      return (data as unknown) as Srv[];
     },
   });
 
