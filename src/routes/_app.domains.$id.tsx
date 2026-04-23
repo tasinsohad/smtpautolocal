@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail } from "lucide-react";
+import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail, Shuffle, Inbox } from "lucide-react";
+import { planDomain, parseList } from "@/lib/planning";
 
 export const Route = createFileRoute("/_app/domains/$id")({
   component: DomainDetail,
@@ -71,6 +72,7 @@ function DomainDetail() {
       <Tabs defaultValue="dns">
         <TabsList>
           <TabsTrigger value="dns">DNS records</TabsTrigger>
+          <TabsTrigger value="plan">Inbox plan</TabsTrigger>
           <TabsTrigger value="mailcow">Mailcow</TabsTrigger>
           <TabsTrigger value="mailboxes">Mailboxes</TabsTrigger>
           <TabsTrigger value="config">Configuration</TabsTrigger>
@@ -78,6 +80,10 @@ function DomainDetail() {
 
         <TabsContent value="dns" className="space-y-4">
           <DnsPanel domain={domain} records={records ?? []} refetch={refetchRecords} userId={user?.id ?? ""} />
+        </TabsContent>
+
+        <TabsContent value="plan" className="space-y-4">
+          <InboxPlanPanel domain={domain} userId={user?.id ?? ""} />
         </TabsContent>
 
         <TabsContent value="mailcow" className="space-y-4">
@@ -446,6 +452,236 @@ function ConfigPanel({ domain, onSaved }: { domain: Domain; onSaved: () => void 
           <div className="space-y-1"><Label>Mailcow API key (read/write)</Label><Input name="mailcow_api_key" type="password" defaultValue={domain.mailcow_api_key ?? ""} maxLength={200} placeholder="from Mailcow admin → System → Configuration → API" /></div>
           <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ============ INBOX PLAN PANEL ============ */
+type PlannedInboxRow = {
+  id: string;
+  subdomain_prefix: string;
+  subdomain_fqdn: string;
+  local_part: string;
+  email: string;
+  person_name: string | null;
+  format: string | null;
+  status: string;
+};
+
+type DomainPlanRow = {
+  id: string;
+  total_inboxes: number;
+  subdomain_count: number;
+  status: string;
+  prefixes_snapshot: string[];
+  names_snapshot: string[];
+};
+
+function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_count?: number | null }; userId: string }) {
+  const qc = useQueryClient();
+  const [regenerating, setRegenerating] = useState(false);
+  const [overrideTotal, setOverrideTotal] = useState<number | "">("");
+
+  const { data: plan } = useQuery({
+    queryKey: ["plan", domain.id],
+    queryFn: async () => {
+      const { data } = await supabase.from("domain_plans").select("*").eq("domain_id", domain.id).maybeSingle();
+      return data as DomainPlanRow | null;
+    },
+  });
+
+  const { data: inboxes } = useQuery({
+    queryKey: ["plan-inboxes", domain.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("planned_inboxes")
+        .select("*")
+        .eq("domain_id", domain.id)
+        .order("subdomain_fqdn")
+        .order("local_part");
+      if (error) throw error;
+      return data as PlannedInboxRow[];
+    },
+  });
+
+  const { data: defaults } = useQuery({
+    queryKey: ["user_secrets"],
+    queryFn: async () => {
+      const { data } = await supabase.from("user_secrets").select("*").maybeSingle();
+      return data;
+    },
+  });
+
+  const grouped = useMemo<[string, PlannedInboxRow[]][]>(() => {
+    const map = new Map<string, PlannedInboxRow[]>();
+    for (const ib of inboxes ?? []) {
+      const arr = map.get(ib.subdomain_fqdn) ?? [];
+      arr.push(ib);
+      map.set(ib.subdomain_fqdn, arr);
+    }
+    return Array.from(map.entries());
+  }, [inboxes]);
+
+  const regenerate = async () => {
+    if (!userId) return;
+    const total =
+      typeof overrideTotal === "number" && overrideTotal > 0
+        ? overrideTotal
+        : (domain as any).planned_inbox_count ?? plan?.total_inboxes ?? 0;
+    if (!total || total < 1) {
+      toast.error("Set an inbox count first");
+      return;
+    }
+    const prefixes = (plan?.prefixes_snapshot && plan.prefixes_snapshot.length
+      ? plan.prefixes_snapshot
+      : ((defaults as any)?.subdomain_prefixes ?? [])) as string[];
+    const names = (plan?.names_snapshot && plan.names_snapshot.length
+      ? plan.names_snapshot
+      : ((defaults as any)?.person_names ?? [])) as string[];
+    if (!prefixes.length) { toast.error("No subdomain prefixes saved (Settings)"); return; }
+    if (!names.length) { toast.error("No names saved (Settings)"); return; }
+
+    setRegenerating(true);
+    try {
+      const built = planDomain(domain.name, { totalInboxes: total, prefixes, names });
+      await supabase.from("planned_inboxes").delete().eq("domain_id", domain.id);
+
+      let planId = plan?.id;
+      if (planId) {
+        await supabase
+          .from("domain_plans")
+          .update({
+            total_inboxes: built.totalInboxes,
+            subdomain_count: built.subdomainCount,
+            status: "planned",
+            prefixes_snapshot: prefixes,
+            names_snapshot: names,
+          } as any)
+          .eq("id", planId);
+      } else {
+        const { data: ins } = await supabase
+          .from("domain_plans")
+          .insert({
+            user_id: userId,
+            domain_id: domain.id,
+            total_inboxes: built.totalInboxes,
+            subdomain_count: built.subdomainCount,
+            status: "planned",
+            prefixes_snapshot: prefixes,
+            names_snapshot: names,
+          } as any)
+          .select()
+          .single();
+        planId = (ins as any)?.id;
+      }
+
+      if (planId) {
+        await supabase.from("domains").update({ planned_inbox_count: built.totalInboxes } as any).eq("id", domain.id);
+        const rows = built.inboxes.map((ib) => ({
+          user_id: userId,
+          domain_id: domain.id,
+          plan_id: planId!,
+          subdomain_prefix: ib.subdomainPrefix,
+          subdomain_fqdn: ib.subdomainFqdn,
+          local_part: ib.localPart,
+          email: ib.email,
+          person_name: ib.personName,
+          format: ib.format,
+          status: "planned",
+        }));
+        if (rows.length) await supabase.from("planned_inboxes").insert(rows as any);
+      }
+
+      qc.invalidateQueries({ queryKey: ["plan", domain.id] });
+      qc.invalidateQueries({ queryKey: ["plan-inboxes", domain.id] });
+      qc.invalidateQueries({ queryKey: ["domain", domain.id] });
+      toast.success(`Regenerated · ${built.subdomainCount} subdomain(s), ${built.inboxes.length} inbox(es)`);
+    } catch (e: any) {
+      toast.error(e?.message ?? String(e));
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  // suppress unused-var lint for parseList import (kept for future use)
+  void parseList;
+
+  const requested = (domain as any).planned_inbox_count ?? plan?.total_inboxes ?? 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Inbox className="h-5 w-5" /> Inbox plan
+            </CardTitle>
+            <CardDescription>
+              {plan
+                ? `${plan.total_inboxes} inbox(es) across ${plan.subdomain_count} subdomain(s)`
+                : "No plan yet — generate one below"}
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Total inboxes</Label>
+              <Input
+                type="number"
+                min={1}
+                max={1000}
+                placeholder={String(requested || 25)}
+                value={overrideTotal}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setOverrideTotal(v === "" ? "" : parseInt(v, 10));
+                }}
+                className="w-24"
+              />
+            </div>
+            <Button onClick={regenerate} disabled={regenerating}>
+              <Shuffle className="mr-2 h-4 w-4" />
+              {regenerating ? "Generating…" : plan ? "Regenerate" : "Generate plan"}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {(!inboxes || inboxes.length === 0) && (
+          <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+            No planned inboxes. Click "Generate plan".
+          </div>
+        )}
+        {grouped.map(([fqdn, list]) => (
+          <div key={fqdn} className="overflow-hidden rounded-md border">
+            <div className="flex items-center justify-between bg-muted/50 px-3 py-2">
+              <div className="font-mono text-sm">{fqdn}</div>
+              <Badge variant="secondary">{list.length} inbox{list.length === 1 ? "" : "es"}</Badge>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left">Email</th>
+                  <th className="px-3 py-2 text-left">Person</th>
+                  <th className="px-3 py-2 text-left">Format</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((ib) => (
+                  <tr key={ib.id} className="border-t">
+                    <td className="px-3 py-2 font-mono text-xs">{ib.email}</td>
+                    <td className="px-3 py-2 text-xs">{ib.person_name ?? "—"}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-muted-foreground">{ib.format ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant="secondary">{ib.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );

@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { CheckCircle2, AlertCircle, KeyRound, RefreshCcw } from "lucide-react";
+import { CheckCircle2, AlertCircle, KeyRound, RefreshCcw, ListTree } from "lucide-react";
+import { parseList } from "@/lib/planning";
 
 export const Route = createFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -122,6 +124,90 @@ function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      <DefaultsCard
+        userId={user?.id ?? ""}
+        prefixes={(secret as any)?.subdomain_prefixes ?? []}
+        names={(secret as any)?.person_names ?? []}
+        onSaved={() => qc.invalidateQueries({ queryKey: ["user_secrets"] })}
+      />
     </div>
+  );
+}
+
+function DefaultsCard({
+  userId,
+  prefixes,
+  names,
+  onSaved,
+}: {
+  userId: string;
+  prefixes: string[];
+  names: string[];
+  onSaved: () => void;
+}) {
+  const [prefixesText, setPrefixesText] = useState(prefixes.join("\n"));
+  const [namesText, setNamesText] = useState(names.join("\n"));
+  const [saving, setSaving] = useState(false);
+
+  const onSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    const { error } = await supabase.from("user_secrets").upsert({
+      user_id: userId,
+      subdomain_prefixes: parseList(prefixesText),
+      person_names: parseList(namesText),
+    });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Defaults saved");
+      onSaved();
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ListTree className="h-5 w-5" /> Planning defaults
+        </CardTitle>
+        <CardDescription>
+          Global lists used to generate inbox plans. The Add-domains wizard pre-fills these but you can override per
+          batch.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="prefixes">Subdomain prefixes (one per line)</Label>
+            <Textarea
+              id="prefixes"
+              value={prefixesText}
+              onChange={(e) => setPrefixesText(e.target.value)}
+              rows={10}
+              placeholder={"mail\ncontact\nhello\nteam\nsupport\ninfo"}
+              className="font-mono text-sm"
+            />
+            <div className="text-xs text-muted-foreground">{parseList(prefixesText).length} unique</div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="names">People names (first or full)</Label>
+            <Textarea
+              id="names"
+              value={namesText}
+              onChange={(e) => setNamesText(e.target.value)}
+              rows={10}
+              placeholder={"Alice Johnson\nJohn Doe\nMarco\nSofia Rossi"}
+              className="font-mono text-sm"
+            />
+            <div className="text-xs text-muted-foreground">{parseList(namesText).length} unique</div>
+          </div>
+        </div>
+        <Button onClick={onSave} disabled={saving}>
+          {saving ? "Saving…" : "Save defaults"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

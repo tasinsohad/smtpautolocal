@@ -73,6 +73,45 @@ export type Database = {
           },
         ]
       }
+      domain_plans: {
+        Row: {
+          created_at: string
+          domain_id: string
+          id: string
+          names_snapshot: string[]
+          prefixes_snapshot: string[]
+          status: string
+          subdomain_count: number
+          total_inboxes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          id?: string
+          names_snapshot?: string[]
+          prefixes_snapshot?: string[]
+          status?: string
+          subdomain_count: number
+          total_inboxes: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          id?: string
+          names_snapshot?: string[]
+          prefixes_snapshot?: string[]
+          status?: string
+          subdomain_count?: number
+          total_inboxes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       domains: {
         Row: {
           cf_account_id: string | null
@@ -83,6 +122,7 @@ export type Database = {
           mailcow_hostname: string | null
           name: string
           notes: string | null
+          planned_inbox_count: number | null
           server_id: string | null
           status: string
           updated_at: string
@@ -97,6 +137,7 @@ export type Database = {
           mailcow_hostname?: string | null
           name: string
           notes?: string | null
+          planned_inbox_count?: number | null
           server_id?: string | null
           status?: string
           updated_at?: string
@@ -111,6 +152,7 @@ export type Database = {
           mailcow_hostname?: string | null
           name?: string
           notes?: string | null
+          planned_inbox_count?: number | null
           server_id?: string | null
           status?: string
           updated_at?: string
@@ -175,6 +217,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      planned_inboxes: {
+        Row: {
+          created_at: string
+          domain_id: string
+          email: string
+          format: string | null
+          id: string
+          last_error: string | null
+          local_part: string
+          person_name: string | null
+          plan_id: string
+          status: string
+          subdomain_fqdn: string
+          subdomain_prefix: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          domain_id: string
+          email: string
+          format?: string | null
+          id?: string
+          last_error?: string | null
+          local_part: string
+          person_name?: string | null
+          plan_id: string
+          status?: string
+          subdomain_fqdn: string
+          subdomain_prefix: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          domain_id?: string
+          email?: string
+          format?: string | null
+          id?: string
+          last_error?: string | null
+          local_part?: string
+          person_name?: string | null
+          plan_id?: string
+          status?: string
+          subdomain_fqdn?: string
+          subdomain_prefix?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       rate_limits: {
         Row: {
@@ -241,6 +334,8 @@ export type Database = {
           cf_account_id: string | null
           cf_api_token: string | null
           created_at: string
+          person_names: string[]
+          subdomain_prefixes: string[]
           updated_at: string
           user_id: string
         }
@@ -248,6 +343,8 @@ export type Database = {
           cf_account_id?: string | null
           cf_api_token?: string | null
           created_at?: string
+          person_names?: string[]
+          subdomain_prefixes?: string[]
           updated_at?: string
           user_id: string
         }
@@ -255,6 +352,8 @@ export type Database = {
           cf_account_id?: string | null
           cf_api_token?: string | null
           created_at?: string
+          person_names?: string[]
+          subdomain_prefixes?: string[]
           updated_at?: string
           user_id?: string
         }
