@@ -13,9 +13,47 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Plus, Globe, Trash2, ChevronRight, ArrowLeft, Info, Shuffle } from "lucide-react";
+import { Plus, Globe, Trash2, ChevronRight, ArrowLeft, Info, Shuffle, Download } from "lucide-react";
 import { seedMailcowRecords, VPS_SETUP_STEPS } from "@/lib/mailcow-defaults";
 import { parseList, planDomain } from "@/lib/planning";
+
+type PlanSummary = {
+  domain_id: string;
+  total_inboxes: number;
+  subdomain_count: number;
+};
+type InboxRow = {
+  domain_id: string;
+  subdomain_fqdn: string;
+  subdomain_prefix: string;
+  local_part: string;
+  email: string;
+  person_name: string | null;
+  format: string | null;
+  status: string;
+};
+
+function downloadFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+}
 
 export const Route = createFileRoute("/_app/domains")({
   component: DomainsPage,
@@ -59,6 +97,48 @@ function DomainsPage() {
     },
   });
 
+  const { data: plans } = useQuery({
+    queryKey: ["all-plans"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("domain_plans")
+        .select("domain_id, total_inboxes, subdomain_count");
+      if (error) throw error;
+      return data as PlanSummary[];
+    },
+  });
+
+  const planByDomain = useMemo(() => {
+    const m = new Map<string, PlanSummary>();
+    for (const p of plans ?? []) m.set(p.domain_id, p);
+    return m;
+  }, [plans]);
+
+  const exportAll = async () => {
+    const { data, error } = await supabase
+      .from("planned_inboxes")
+      .select("domain_id, subdomain_fqdn, subdomain_prefix, local_part, email, person_name, format, status")
+      .order("subdomain_fqdn")
+      .order("local_part");
+    if (error) { toast.error(error.message); return; }
+    const rows = (data as InboxRow[]) ?? [];
+    if (!rows.length) { toast.info("No planned inboxes yet"); return; }
+    const domainName = new Map(domains?.map((d) => [d.id, d.name]) ?? []);
+    const enriched = rows.map((r) => ({
+      domain: domainName.get(r.domain_id) ?? "",
+      subdomain: r.subdomain_fqdn,
+      prefix: r.subdomain_prefix,
+      local_part: r.local_part,
+      email: r.email,
+      person_name: r.person_name ?? "",
+      format: r.format ?? "",
+      status: r.status,
+    }));
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadFile(`planned-inboxes-${stamp}.csv`, toCsv(enriched), "text/csv;charset=utf-8");
+    toast.success(`Exported ${enriched.length} inbox(es)`);
+  };
+
   const onDelete = async (id: string) => {
     if (!confirm("Delete this domain and its DNS records?")) return;
     const { error } = await supabase.from("domains").delete().eq("id", id);
@@ -79,23 +159,30 @@ function DomainsPage() {
             addresses automatically.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add domains
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <AddDomainsWizard
-              onClose={() => {
-                setOpen(false);
-                qc.invalidateQueries({ queryKey: ["domains"] });
-                qc.invalidateQueries({ queryKey: ["overview-stats"] });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportAll} disabled={!plans?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Export all (CSV)
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add domains
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <AddDomainsWizard
+                onClose={() => {
+                  setOpen(false);
+                  qc.invalidateQueries({ queryKey: ["domains"] });
+                  qc.invalidateQueries({ queryKey: ["overview-stats"] });
+                  qc.invalidateQueries({ queryKey: ["all-plans"] });
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {domains && domains.length === 0 && (
@@ -108,30 +195,37 @@ function DomainsPage() {
       )}
 
       <div className="grid gap-3">
-        {domains?.map((d) => (
-          <Card key={d.id} className="transition-colors hover:bg-accent/30">
-            <CardContent className="flex items-center justify-between gap-4 p-4">
-              <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any} className="flex flex-1 items-center gap-3">
-                <Globe className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {d.cf_zone_id ? "Zone linked" : "No CF zone"} · {d.status}
+        {domains?.map((d) => {
+          const p = planByDomain.get(d.id);
+          return (
+            <Card key={d.id} className="transition-colors hover:bg-accent/30">
+              <CardContent className="flex items-center justify-between gap-4 p-4">
+                <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any} className="flex flex-1 items-center gap-3">
+                  <Globe className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">{d.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {p
+                        ? `${p.total_inboxes} inbox(es) across ${p.subdomain_count} subdomain(s)`
+                        : "No plan yet"}
+                      {" · "}
+                      {d.cf_zone_id ? "Zone linked" : "No CF zone"}
+                    </div>
                   </div>
-                </div>
-              </Link>
-              <Badge variant="secondary">{d.status}</Badge>
-              <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-              <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any}>
-                <Button variant="ghost" size="icon">
-                  <ChevronRight className="h-4 w-4" />
+                </Link>
+                <Badge variant="secondary">{d.status}</Badge>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
+                <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any}>
+                  <Button variant="ghost" size="icon">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

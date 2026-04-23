@@ -16,8 +16,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail, Shuffle, Inbox } from "lucide-react";
+import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail, Shuffle, Inbox, Download } from "lucide-react";
 import { planDomain, parseList } from "@/lib/planning";
+
+function downloadFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+}
 
 export const Route = createFileRoute("/_app/domains/$id")({
   component: DomainDetail,
@@ -639,6 +661,26 @@ function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_c
                 className="w-24"
               />
             </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!inboxes?.length) { toast.info("No inboxes to export"); return; }
+                const rows = inboxes.map((ib) => ({
+                  domain: domain.name,
+                  subdomain: ib.subdomain_fqdn,
+                  prefix: ib.subdomain_prefix,
+                  local_part: ib.local_part,
+                  email: ib.email,
+                  person_name: ib.person_name ?? "",
+                  format: ib.format ?? "",
+                  status: ib.status,
+                }));
+                downloadFile(`${domain.name}-inboxes.csv`, toCsv(rows), "text/csv;charset=utf-8");
+              }}
+              disabled={!inboxes?.length}
+            >
+              <Download className="mr-2 h-4 w-4" /> CSV
+            </Button>
             <Button onClick={regenerate} disabled={regenerating}>
               <Shuffle className="mr-2 h-4 w-4" />
               {regenerating ? "Generating…" : plan ? "Regenerate" : "Generate plan"}
