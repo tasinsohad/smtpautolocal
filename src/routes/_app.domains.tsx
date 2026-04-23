@@ -13,9 +13,47 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Plus, Globe, Trash2, ChevronRight, ArrowLeft, Info, Shuffle } from "lucide-react";
+import { Plus, Globe, Trash2, ChevronRight, ArrowLeft, Info, Shuffle, Download } from "lucide-react";
 import { seedMailcowRecords, VPS_SETUP_STEPS } from "@/lib/mailcow-defaults";
 import { parseList, planDomain } from "@/lib/planning";
+
+type PlanSummary = {
+  domain_id: string;
+  total_inboxes: number;
+  subdomain_count: number;
+};
+type InboxRow = {
+  domain_id: string;
+  subdomain_fqdn: string;
+  subdomain_prefix: string;
+  local_part: string;
+  email: string;
+  person_name: string | null;
+  format: string | null;
+  status: string;
+};
+
+function downloadFile(filename: string, content: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [headers.join(","), ...rows.map((r) => headers.map((h) => escape(r[h])).join(","))].join("\n");
+}
 
 export const Route = createFileRoute("/_app/domains")({
   component: DomainsPage,
