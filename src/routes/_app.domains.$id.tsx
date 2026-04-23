@@ -16,7 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail } from "lucide-react";
+import { ChevronLeft, Play, RefreshCcw, Trash2, Plus, CheckCircle2, XCircle, Mail, Shuffle, Inbox } from "lucide-react";
+import { planDomain, parseList } from "@/lib/planning";
 
 export const Route = createFileRoute("/_app/domains/$id")({
   component: DomainDetail,
