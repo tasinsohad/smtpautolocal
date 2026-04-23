@@ -195,30 +195,37 @@ function DomainsPage() {
       )}
 
       <div className="grid gap-3">
-        {domains?.map((d) => (
-          <Card key={d.id} className="transition-colors hover:bg-accent/30">
-            <CardContent className="flex items-center justify-between gap-4 p-4">
-              <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any} className="flex flex-1 items-center gap-3">
-                <Globe className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <div className="font-medium">{d.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {d.cf_zone_id ? "Zone linked" : "No CF zone"} · {d.status}
+        {domains?.map((d) => {
+          const p = planByDomain.get(d.id);
+          return (
+            <Card key={d.id} className="transition-colors hover:bg-accent/30">
+              <CardContent className="flex items-center justify-between gap-4 p-4">
+                <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any} className="flex flex-1 items-center gap-3">
+                  <Globe className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">{d.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {p
+                        ? `${p.total_inboxes} inbox(es) across ${p.subdomain_count} subdomain(s)`
+                        : "No plan yet"}
+                      {" · "}
+                      {d.cf_zone_id ? "Zone linked" : "No CF zone"}
+                    </div>
                   </div>
-                </div>
-              </Link>
-              <Badge variant="secondary">{d.status}</Badge>
-              <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-              <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any}>
-                <Button variant="ghost" size="icon">
-                  <ChevronRight className="h-4 w-4" />
+                </Link>
+                <Badge variant="secondary">{d.status}</Badge>
+                <Button variant="ghost" size="icon" onClick={() => onDelete(d.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
+                <Link to={"/domains/$id" as "/"} params={{ id: d.id } as any}>
+                  <Button variant="ghost" size="icon">
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
