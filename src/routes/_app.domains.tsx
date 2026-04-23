@@ -159,23 +159,30 @@ function DomainsPage() {
             addresses automatically.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add domains
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <AddDomainsWizard
-              onClose={() => {
-                setOpen(false);
-                qc.invalidateQueries({ queryKey: ["domains"] });
-                qc.invalidateQueries({ queryKey: ["overview-stats"] });
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportAll} disabled={!plans?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Export all (CSV)
+          </Button>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add domains
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl">
+              <AddDomainsWizard
+                onClose={() => {
+                  setOpen(false);
+                  qc.invalidateQueries({ queryKey: ["domains"] });
+                  qc.invalidateQueries({ queryKey: ["overview-stats"] });
+                  qc.invalidateQueries({ queryKey: ["all-plans"] });
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {domains && domains.length === 0 && (
