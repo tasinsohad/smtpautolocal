@@ -686,19 +686,6 @@ function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_c
               {regenerating ? "Generating…" : plan ? "Regenerate" : "Generate plan"}
             </Button>
           </div>
-                value={overrideTotal}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setOverrideTotal(v === "" ? "" : parseInt(v, 10));
-                }}
-                className="w-24"
-              />
-            </div>
-            <Button onClick={regenerate} disabled={regenerating}>
-              <Shuffle className="mr-2 h-4 w-4" />
-              {regenerating ? "Generating…" : plan ? "Regenerate" : "Generate plan"}
-            </Button>
-          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
