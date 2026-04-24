@@ -125,88 +125,165 @@ function SettingsPage() {
         </CardContent>
       </Card>
 
-      <DefaultsCard
-        userId={user?.id ?? ""}
-        prefixes={(secret as any)?.subdomain_prefixes ?? []}
-        names={(secret as any)?.person_names ?? []}
-        onSaved={() => qc.invalidateQueries({ queryKey: ["user_secrets"] })}
-      />
+      <TemplatesCard userId={user?.id ?? ""} />
     </div>
   );
 }
 
-function DefaultsCard({
-  userId,
-  prefixes,
-  names,
-  onSaved,
-}: {
-  userId: string;
-  prefixes: string[];
-  names: string[];
-  onSaved: () => void;
-}) {
-  const [prefixesText, setPrefixesText] = useState(prefixes.join("\n"));
-  const [namesText, setNamesText] = useState(names.join("\n"));
+type JobTemplate = { id: string; name: string; person_names: string[]; subdomain_prefixes: string[] };
+
+function TemplatesCard({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [prefixesText, setPrefixesText] = useState("");
+  const [namesText, setNamesText] = useState("");
+  const [templateName, setTemplateName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const { data: templates } = useQuery({
+    queryKey: ["job_templates"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("job_templates").select("*").order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as JobTemplate[];
+    },
+  });
+
+  const onEdit = (t: JobTemplate) => {
+    setEditingId(t.id);
+    setTemplateName(t.name);
+    setPrefixesText(t.subdomain_prefixes.join("\n"));
+    setNamesText(t.person_names.join("\n"));
+  };
+
+  const onNew = () => {
+    setEditingId("new");
+    setTemplateName("New Template");
+    setPrefixesText("");
+    setNamesText("");
+  };
+
   const onSave = async () => {
-    if (!userId) return;
+    if (!userId || !templateName.trim()) { toast.error("Name is required"); return; }
     setSaving(true);
-    const { error } = await supabase.from("user_secrets").upsert({
-      user_id: userId,
+    
+    const payload = {
+      name: templateName,
       subdomain_prefixes: parseList(prefixesText),
       person_names: parseList(namesText),
-    });
+      user_id: userId,
+    };
+
+    let error;
+    if (editingId === "new") {
+      const { error: err } = await supabase.from("job_templates").insert(payload);
+      error = err;
+    } else {
+      const { error: err } = await supabase.from("job_templates").update(payload).eq("id", editingId!);
+      error = err;
+    }
+
     setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    
+    toast.success("Template saved");
+    setEditingId(null);
+    qc.invalidateQueries({ queryKey: ["job_templates"] });
+  };
+
+  const onDelete = async (id: string) => {
+    if (!confirm("Delete this template?")) return;
+    const { error } = await supabase.from("job_templates").delete().eq("id", id);
     if (error) toast.error(error.message);
     else {
-      toast.success("Defaults saved");
-      onSaved();
+      toast.success("Deleted");
+      if (editingId === id) setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["job_templates"] });
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ListTree className="h-5 w-5" /> Planning defaults
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ListTree className="h-5 w-5" /> Job Templates
+          </div>
+          <Button variant="outline" size="sm" onClick={onNew} disabled={editingId !== null}>
+            Create Template
+          </Button>
         </CardTitle>
         <CardDescription>
-          Global lists used to generate inbox plans. The Add-domains wizard pre-fills these but you can override per
-          batch.
+          Save different combinations of subdomain prefixes and people names to reuse them when creating domain batches.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        {editingId === null ? (
           <div className="space-y-2">
-            <Label htmlFor="prefixes">Subdomain prefixes (one per line)</Label>
-            <Textarea
-              id="prefixes"
-              value={prefixesText}
-              onChange={(e) => setPrefixesText(e.target.value)}
-              rows={10}
-              placeholder={"mail\ncontact\nhello\nteam\nsupport\ninfo"}
-              className="font-mono text-sm"
-            />
-            <div className="text-xs text-muted-foreground">{parseList(prefixesText).length} unique</div>
+            {templates?.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No templates saved yet.</div>
+            ) : (
+              <div className="grid gap-2">
+                {templates?.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <div className="font-medium">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {t.subdomain_prefixes.length} prefix(es), {t.person_names.length} name(s)
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => onEdit(t)}>Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => onDelete(t.id)} className="text-destructive">Delete</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="names">People names (first or full)</Label>
-            <Textarea
-              id="names"
-              value={namesText}
-              onChange={(e) => setNamesText(e.target.value)}
-              rows={10}
-              placeholder={"Alice Johnson\nJohn Doe\nMarco\nSofia Rossi"}
-              className="font-mono text-sm"
-            />
-            <div className="text-xs text-muted-foreground">{parseList(namesText).length} unique</div>
+        ) : (
+          <div className="space-y-4 rounded-md border p-4 bg-muted/20">
+            <div className="space-y-2">
+              <Label htmlFor="template_name">Template Name</Label>
+              <Input
+                id="template_name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Marketing Batch"
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="prefixes">Subdomain prefixes (one per line)</Label>
+                <Textarea
+                  id="prefixes"
+                  value={prefixesText}
+                  onChange={(e) => setPrefixesText(e.target.value)}
+                  rows={8}
+                  placeholder={"mail\ncontact\nhello\nteam\nsupport\ninfo"}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">{parseList(prefixesText).length} unique</div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="names">People names (first or full)</Label>
+                <Textarea
+                  id="names"
+                  value={namesText}
+                  onChange={(e) => setNamesText(e.target.value)}
+                  rows={8}
+                  placeholder={"Alice Johnson\nJohn Doe\nMarco\nSofia Rossi"}
+                  className="font-mono text-sm"
+                />
+                <div className="text-xs text-muted-foreground">{parseList(namesText).length} unique</div>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save template"}</Button>
+              <Button variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+            </div>
           </div>
-        </div>
-        <Button onClick={onSave} disabled={saving}>
-          {saving ? "Saving…" : "Save defaults"}
-        </Button>
+        )}
       </CardContent>
     </Card>
   );

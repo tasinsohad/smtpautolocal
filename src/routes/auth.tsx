@@ -22,6 +22,7 @@ function AuthPage() {
   const { user, loading, signIn, signUp } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
+  if (import.meta.env.DEV) return <Navigate to="/" />;
   if (!loading && user) return <Navigate to="/" />;
 
   const handle = async (mode: "signin" | "signup", form: HTMLFormElement) => {

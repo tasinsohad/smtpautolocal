@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -96,5 +97,10 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  body { background-color: var(--color-background); color: var(--color-foreground); font-feature-settings: "rlig" 1, "calt" 1; }
+  body { 
+    background-color: var(--color-background); 
+    color: var(--color-foreground); 
+    font-feature-settings: "rlig" 1, "calt" 1; 
+    font-family: 'Inter', sans-serif;
+  }
 }

@@ -73,6 +73,41 @@ export type Database = {
           },
         ]
       }
+      domain_batches: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_batches_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       domain_plans: {
         Row: {
           created_at: string
@@ -114,6 +149,7 @@ export type Database = {
       }
       domains: {
         Row: {
+          batch_id: string | null
           cf_account_id: string | null
           cf_zone_id: string | null
           created_at: string
@@ -129,6 +165,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_id?: string | null
           cf_account_id?: string | null
           cf_zone_id?: string | null
           created_at?: string
@@ -144,6 +181,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_id?: string | null
           cf_account_id?: string | null
           cf_zone_id?: string | null
           created_at?: string
@@ -160,6 +198,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "domains_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "domain_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "domains_server_id_fkey"
             columns: ["server_id"]
             isOneToOne: false
@@ -167,6 +212,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          person_names: string[]
+          subdomain_prefixes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          person_names?: string[]
+          subdomain_prefixes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          person_names?: string[]
+          subdomain_prefixes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       jobs: {
         Row: {

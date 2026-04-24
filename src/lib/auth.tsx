@@ -19,6 +19,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      setUser({ id: "12345678-1234-1234-1234-123456789012", email: "local@dev.local" } as User);
+      setSession({ user: { id: "12345678-1234-1234-1234-123456789012" } } as Session);
+      setLoading(false);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);

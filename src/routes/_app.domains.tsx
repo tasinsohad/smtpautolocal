@@ -56,6 +56,9 @@ function toCsv(rows: Record<string, unknown>[]): string {
 }
 
 export const Route = createFileRoute("/_app/domains")({
+  validateSearch: (search: Record<string, unknown>): { batch_id?: string } => {
+    return { batch_id: search.batch_id as string | undefined };
+  },
   component: DomainsPage,
 });
 
@@ -72,7 +75,7 @@ const vpsSchema = z.object({
   ssh_user: z.string().trim().min(1).max(32),
 });
 
-type Domain = { id: string; name: string; status: string; cf_zone_id: string | null; server_id: string | null };
+type Domain = { id: string; name: string; status: string; cf_zone_id: string | null; server_id: string | null; batch_id: string | null };
 
 type WizardRow = {
   domain: string;
@@ -84,14 +87,17 @@ type WizardRow = {
 function DomainsPage() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const { batch_id } = Route.useSearch();
 
   const { data: domains } = useQuery({
-    queryKey: ["domains"],
+    queryKey: ["domains", batch_id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("domains")
-        .select("id, name, status, cf_zone_id, server_id")
+        .select("id, name, status, cf_zone_id, server_id, batch_id")
         .order("created_at", { ascending: false });
+      if (batch_id) q = q.eq("batch_id", batch_id);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Domain[];
     },
@@ -113,6 +119,15 @@ function DomainsPage() {
     for (const p of plans ?? []) m.set(p.domain_id, p);
     return m;
   }, [plans]);
+
+  const { data: batches } = useQuery({
+    queryKey: ["domain_batches"],
+    queryFn: async () => {
+      const { data } = await supabase.from("domain_batches").select("id, name");
+      return data ?? [];
+    },
+  });
+  const batchName = useMemo(() => new Map(batches?.map((b) => [b.id, b.name])), [batches]);
 
   const exportAll = async () => {
     const { data, error } = await supabase
@@ -153,7 +168,9 @@ function DomainsPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Domains</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {batch_id ? `Domains in Job` : `Domains`}
+          </h1>
           <p className="mt-1 text-muted-foreground">
             Paste your domains, set the VPS for each, choose how many inboxes you want — we plan subdomains and
             addresses automatically.
@@ -210,6 +227,7 @@ function DomainsPage() {
                         : "No plan yet"}
                       {" · "}
                       {d.cf_zone_id ? "Zone linked" : "No CF zone"}
+                      {d.batch_id ? ` · Job: ${batchName.get(d.batch_id) || d.batch_id}` : ""}
                     </div>
                   </div>
                 </Link>
@@ -238,29 +256,42 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
   const [rows, setRows] = useState<WizardRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Step 3: planning lists (pre-filled from user_secrets)
+  // Step 3: planning lists (NOT pre-filled - user must provide their own)
   const [prefixesText, setPrefixesText] = useState("");
   const [namesText, setNamesText] = useState("");
+  const [batchName, setBatchName] = useState("");
+  const [templateId, setTemplateId] = useState("default");
 
-  // Range randomizer (step 2 helper)
+// Range randomizer (step 2 helper)
   const [rangeMin, setRangeMin] = useState<number>(20);
   const [rangeMax, setRangeMax] = useState<number>(40);
 
-  const { data: defaults } = useQuery({
-    queryKey: ["user_secrets"],
+  // NOT loading defaults automatically - user must provide their own
+  // values will be empty unless they select a template
+
+  const { data: templates } = useQuery({
+    queryKey: ["job_templates"],
     queryFn: async () => {
-      const { data } = await supabase.from("user_secrets").select("*").maybeSingle();
-      return data;
+      const { data } = await supabase.from("job_templates").select("*").order("created_at");
+      return data ?? [];
     },
   });
 
-  useEffect(() => {
-    if (!defaults) return;
-    const p = ((defaults as any).subdomain_prefixes ?? []) as string[];
-    const n = ((defaults as any).person_names ?? []) as string[];
-    setPrefixesText((cur) => (cur ? cur : p.join("\n")));
-    setNamesText((cur) => (cur ? cur : n.join("\n")));
-  }, [defaults]);
+  const onTemplateChange = (tid: string) => {
+    setTemplateId(tid);
+    // When "default" template is selected, keep the fields empty if user hasn't entered anything
+    // This forces them to provide their own data rather than relying on defaults
+    if (tid === "default") {
+      // Leave empty - user should provide their own prefixes/names or save in Settings first
+      return;
+    } else {
+      const t = templates?.find((x) => x.id === tid);
+      if (t) {
+        setPrefixesText(t.subdomain_prefixes.join("\n"));
+        setNamesText(t.person_names.join("\n"));
+      }
+    }
+  };
 
   const parsedDomains = useMemo(() => {
     const lines = paste
@@ -323,6 +354,17 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
         return;
       }
     }
+    // Validate step 3 inputs before proceeding
+    const p = parseList(prefixesText);
+    const n = parseList(namesText);
+    if (p.length === 0) {
+      toast.error("Add at least one subdomain prefix in Step 3");
+      return;
+    }
+    if (n.length === 0) {
+      toast.error("Add at least one name in Step 3");
+      return;
+    }
     setStep(3);
   };
 
@@ -335,6 +377,18 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
 
     setSubmitting(true);
     try {
+      let createdBatchId = null;
+      if (batchName.trim()) {
+        const { data: batchData, error: batchErr } = await supabase.from("domain_batches").insert({
+          user_id: user.id,
+          name: batchName.trim(),
+          template_id: templateId !== "default" ? templateId : null
+        }).select().single();
+        if (!batchErr && batchData) {
+          createdBatchId = batchData.id;
+        }
+      }
+
       let okCount = 0;
       let inboxTotal = 0;
       for (const r of rows) {
@@ -356,7 +410,6 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
           toast.error(`${r.domain}: ${srvErr?.message ?? "server insert failed"}`);
           continue;
         }
-
         // 2. Domain
         const { data: dom, error: domErr } = await supabase
           .from("domains")
@@ -367,6 +420,7 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
             mailcow_hostname: `mail.${r.domain}`,
             status: "planning",
             planned_inbox_count: r.inbox_count,
+            batch_id: createdBatchId,
           } as any)
           .select()
           .single();
@@ -446,6 +500,16 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
           <DialogTitle>Step 1 of 3 · Paste domains</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="batchName">Job Name (Optional)</Label>
+            <Input
+              id="batchName"
+              value={batchName}
+              onChange={(e) => setBatchName(e.target.value)}
+              placeholder="e.g. Marketing Batch Q3"
+            />
+            <p className="text-xs text-muted-foreground">Give this batch a name to group these domains together.</p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="paste">Domains (one per line)</Label>
             <Textarea
@@ -581,10 +645,22 @@ function AddDomainsWizard({ onClose }: { onClose: () => void }) {
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription className="text-xs">
-          Pre-filled from your Settings defaults. Edit here to override for this batch only. We'll randomly choose
+          Edit here to override for this batch only. We'll randomly choose
           subdomains and distribute the {totalInboxes} inbox{totalInboxes === 1 ? "" : "es"} across them.
         </AlertDescription>
       </Alert>
+
+      <div className="space-y-2">
+        <Label>Load from Template</Label>
+        <select 
+          value={templateId} 
+          onChange={(e) => onTemplateChange(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <option value="default">Global Defaults</option>
+          {templates?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">

@@ -561,8 +561,8 @@ function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_c
     const names = (plan?.names_snapshot && plan.names_snapshot.length
       ? plan.names_snapshot
       : ((defaults as any)?.person_names ?? [])) as string[];
-    if (!prefixes.length) { toast.error("No subdomain prefixes saved (Settings)"); return; }
-    if (!names.length) { toast.error("No names saved (Settings)"); return; }
+    if (!prefixes.length) { toast.error("No subdomain prefixes. Go to Settings → Job Templates to add defaults."); return; }
+    if (!names.length) { toast.error("No names. Go to Settings → Job Templates to add defaults."); return; }
 
     setRegenerating(true);
     try {
@@ -630,6 +630,9 @@ function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_c
   void parseList;
 
   const requested = (domain as any).planned_inbox_count ?? plan?.total_inboxes ?? 0;
+  const hasPrefixes = (plan?.prefixes_snapshot && plan.prefixes_snapshot.length > 0) || ((defaults as any)?.subdomain_prefixes?.length ?? 0) > 0;
+  const hasNames = (plan?.names_snapshot && plan.names_snapshot.length > 0) || ((defaults as any)?.person_names?.length ?? 0) > 0;
+  const canGenerate = hasPrefixes && hasNames;
 
   return (
     <Card>
@@ -681,7 +684,7 @@ function InboxPlanPanel({ domain, userId }: { domain: Domain & { planned_inbox_c
             >
               <Download className="mr-2 h-4 w-4" /> CSV
             </Button>
-            <Button onClick={regenerate} disabled={regenerating}>
+            <Button onClick={regenerate} disabled={regenerating || !canGenerate}>
               <Shuffle className="mr-2 h-4 w-4" />
               {regenerating ? "Generating…" : plan ? "Regenerate" : "Generate plan"}
             </Button>
