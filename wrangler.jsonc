@@ -1,14 +1,39 @@
 {
-  "name": "smtp-forge",
-  "pages_build_output_dir": ".output/public",
-  "d1_databases": [
+  // Cloudflare Workers deployment configuration for SMTP Forge
+  // Uses Workers mode for D1 integration
+  name: 'smtp-forge',
+  main: '.output/server/index.js',
+  compatibility_date: '2024-04-01',
+  compatibility_flags: ['nodejs_compat_v2'],
+  
+  // D1 SQLite database - edge-optimized relational storage
+  // Create with: wrangler d1 create smtp-forge-db
+  // Update database_id with your actual D1 database ID
+  d1_databases: [
     {
-      "binding": "smtp_forge_db",
-      "database_name": "smtp-forge-db",
-      "database_id": "bbc4d43e-e880-4a67-8b1e-8ddd903c45be",
-      "migrations_dir": "migrations"
+      binding: 'DB',
+      database_name: 'smtp-forge-db',
+      database_id: 'bbc4d43e-e880-4a67-8b1e-8ddd903c45be',
+      migrations_dir: 'migrations'
     }
   ],
-  "compatibility_date": "2024-04-01",
-  "compatibility_flags": ["nodejs_compat"]
+  
+  // Environment variables (use wrangler secret for production secrets)
+  vars: {
+    APP_ENV: 'production'
+  },
+  
+  // Static assets from TanStack Start build output
+  assets: '.output/public',
+  
+  // Edge compute optimization (requires Workers Paid plan)
+  // Remove this section if on free tier
+  placement: {
+    mode: 'smart'
+  },
+  
+  // Build configuration
+  build: {
+    upload_environment_variables: ['APP_ENV']
+  }
 }

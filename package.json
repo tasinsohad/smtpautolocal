@@ -1,5 +1,5 @@
 {
-  "name": "tanstack_start_ts",
+  "name": "smtp-forge",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -7,11 +7,23 @@
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "preview": "vite preview",
+    "preview": "wrangler dev --config wrangler.jsonc --local",
+    "preview:remote": "wrangler dev --config wrangler.jsonc",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    // D1 migration commands
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply smtp-forge-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply smtp-forge-db --remote",
+    "db:push:local": "wrangler d1 push smtp-forge-db --local",
+    "db:push:remote": "wrangler d1 push smtp-forge-db --remote",
+    "db:studio": "drizzle-kit studio",
+    // Deploy commands
     "predeploy": "node scripts/prepare-deploy.mjs",
-    "deploy": "npm run build && npm run predeploy && npx wrangler deploy --config dist/client/wrangler.deploy.json"
+    "deploy:workers": "npm run build && npm run predeploy && wrangler deploy .output/wrangler.deploy.json",
+    "deploy": "npm run build && npm run predeploy && wrangler deploy",
+    "deploy:pages": "npm run build && wrangler pages deploy .output/public --project-name=smtp-forge"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

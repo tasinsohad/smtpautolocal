@@ -11,10 +11,15 @@ export default defineConfig({
     tanstackRouter(),
     tanstackStart({
       server: {
-        preset: "vercel",
+        preset: "cloudflare-workers",
       },
     }),
     react(),
     tailwindcss(),
   ],
+  // Optimize for edge deployment
+  build: {
+    target: "esnext",
+    minify: "esbuild",
+  },
 });
