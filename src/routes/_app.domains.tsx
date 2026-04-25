@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Globe, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { AddDomainsWizard } from "@/components/AddDomainsWizard";
 
 export const Route = createFileRoute("/_app/domains")({
   component: DomainsPage,
@@ -23,7 +22,6 @@ const STATUS_COLOR: Record<string, string> = {
 function DomainsPage() {
   const qc = useQueryClient();
   const [batchFilter, setBatchFilter] = useState<string>("all");
-  const [wizardOpen, setWizardOpen] = useState(false);
 
   const { data: batches = [] } = useQuery({
     queryKey: ["domain-batches"],
@@ -62,13 +60,8 @@ function DomainsPage() {
               </SelectContent>
             </Select>
           )}
-          <Button onClick={() => setWizardOpen(true)} className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2">
-            <Plus className="h-4 w-4" /> Add Domains
-          </Button>
         </div>
       </div>
-
-      {wizardOpen && <AddDomainsWizard onClose={() => setWizardOpen(false)} />}
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>

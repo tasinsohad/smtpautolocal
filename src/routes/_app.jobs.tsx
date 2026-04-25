@@ -5,15 +5,12 @@ import { Loader2, Globe, FolderGit2, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { AddDomainsWizard } from "@/components/AddDomainsWizard";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
 });
 
 function JobsPage() {
-  const [wizardOpen, setWizardOpen] = useState(false);
-
   const { data: batches = [], isLoading } = useQuery({
     queryKey: ["domain-batches"],
     queryFn: () => listDomainBatches(),

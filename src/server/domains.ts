@@ -71,6 +71,18 @@ export const listDomainBatches = createServerFn({ method: "GET" })
     return await db.select().from(domainBatches).where(eq(domainBatches.userId, userId)).orderBy(desc(domainBatches.createdAt));
   });
 
+export const getDomainDetails = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { db, userId } = context as any;
+    const domain = await db.query.domains.findFirst({
+      where: and(eq(domains.id, data.id), eq(domains.userId, userId)),
+    });
+    const records = await db.select().from(dnsRecords).where(eq(dnsRecords.domainId, data.id));
+    return { domain, records };
+  });
+
 export const addDomainsWizardAction = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({
