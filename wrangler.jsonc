@@ -1,0 +1,14 @@
+{
+  "name": "smtp-forge",
+  "pages_build_output_dir": ".output/public",
+  "d1_databases": [
+    {
+      "binding": "smtp_forge_db",
+      "database_name": "smtp-forge-db",
+      "database_id": "bbc4d43e-e880-4a67-8b1e-8ddd903c45be",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "compatibility_date": "2024-04-01",
+  "compatibility_flags": ["nodejs_compat"]
+}

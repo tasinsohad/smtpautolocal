@@ -1,119 +1,78 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { listDomainBatches, listDomains } from "@/server/domains";
+import { Loader2, Globe, FolderGit2, Plus } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { Trash2, FolderGit2, ChevronRight, ListTree } from "lucide-react";
-import { format } from "date-fns";
+import { useState } from "react";
+import { AddDomainsWizard } from "@/components/AddDomainsWizard";
 
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
 });
 
-type DomainBatch = {
-  id: string;
-  name: string;
-  created_at: string;
-  template: { name: string } | null;
-  domains: { id: string }[];
-};
-
 function JobsPage() {
-  const qc = useQueryClient();
+  const [wizardOpen, setWizardOpen] = useState(false);
 
-  const { data: batches, isLoading } = useQuery({
-    queryKey: ["domain_batches"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("domain_batches")
-        .select(`
-          id, name, created_at,
-          template:job_templates(name),
-          domains(id)
-        `)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as unknown as DomainBatch[];
-    },
+  const { data: batches = [], isLoading } = useQuery({
+    queryKey: ["domain-batches"],
+    queryFn: () => listDomainBatches(),
   });
 
-  const onDelete = async (id: string) => {
-    if (!confirm("Delete this Job? The domains inside will NOT be deleted, they will just be unlinked from this job.")) return;
-    const { error } = await supabase.from("domain_batches").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Job deleted");
-      qc.invalidateQueries({ queryKey: ["domain_batches"] });
-      qc.invalidateQueries({ queryKey: ["domains"] });
-    }
-  };
-
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 p-8">
+    <div className="flex flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Jobs</h1>
-          <p className="mt-1 text-muted-foreground">
-            Manage your domain creation batches.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
+          <p className="text-sm text-gray-500 mt-1">Domain batches and provisioning runs</p>
         </div>
-        <Link to="/domains">
-          <Button>
-            Create New Job
-          </Button>
-        </Link>
+        <Button onClick={() => setWizardOpen(true)} className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2">
+          <Plus className="h-4 w-4" /> Add Domains
+        </Button>
       </div>
 
+      {wizardOpen && <AddDomainsWizard onClose={() => setWizardOpen(false)} />}
+
       {isLoading ? (
-        <div className="text-muted-foreground">Loading jobs...</div>
-      ) : batches?.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-2 p-12 text-center text-muted-foreground">
-            <FolderGit2 className="h-10 w-10 opacity-40" />
-            <div>No jobs found.</div>
-            <p className="text-sm">Create a job when adding domains.</p>
-          </CardContent>
-        </Card>
+        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+      ) : batches.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl bg-white p-16 text-center ring-1 ring-black/5">
+          <FolderGit2 className="h-12 w-12 text-gray-300" />
+          <p className="text-lg font-medium text-gray-700">No jobs yet</p>
+          <p className="text-sm text-gray-500">Click "Add Domains" to create your first batch.</p>
+        </div>
       ) : (
-        <div className="grid gap-3">
-          {batches?.map((b) => (
-            <Card key={b.id} className="transition-colors hover:bg-accent/30">
-              <CardContent className="flex items-center justify-between gap-4 p-4">
-                <div className="flex flex-1 items-center gap-4">
-                  <FolderGit2 className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <div className="font-medium text-lg">{b.name}</div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-3 mt-1">
-                      <span>Created {format(new Date(b.created_at), "MMM d, yyyy h:mm a")}</span>
-                      <span>•</span>
-                      <span>{b.domains.length} domain(s)</span>
-                      {b.template && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <ListTree className="h-3 w-3" />
-                            {b.template.name}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => onDelete(b.id)} title="Delete Job">
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-                <Link to="/domains" search={{ batch_id: b.id }}>
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    View Domains
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {batches.map((b: any) => (
+            <BatchCard key={b.id} batch={b} />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function BatchCard({ batch }: { batch: any }) {
+  const { data: domains = [] } = useQuery({
+    queryKey: ["domains", batch.id],
+    queryFn: () => listDomains({ data: { batchId: batch.id } }),
+  });
+
+  return (
+    <Link to="/domains" className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
+          <FolderGit2 className="h-5 w-5 text-[#4DB584]" />
+        </div>
+        <div>
+          <div className="font-semibold text-gray-900">{batch.name}</div>
+          <div className="text-xs text-gray-500">{new Date(batch.createdAt).toLocaleDateString()}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <Globe className="h-4 w-4" />
+        <span>{domains.length} domain{domains.length !== 1 ? "s" : ""}</span>
+      </div>
+    </Link>
   );
 }
