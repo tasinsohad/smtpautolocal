@@ -57,35 +57,11 @@ jobs:
       - name: Prepare deploy config
         run: npm run predeploy
 
-      # Create D1 database if it doesn't exist
-      - name: Create D1 database (if needed)
+      # Use provided D1 database ID
+      - name: Configure D1 database
         run: |
-          echo \"Checking if D1 database exists...\"
-          # Check if database exists
-          DB_LIST=$(npx wrangler d1 list 2>&1)
-          echo \"$DB_LIST\"
-          
-          if echo \"$DB_LIST\" | grep -q \"smtp-forge-db\"; then
-            echo \"Database 'smtp-forge-db' already exists.\"
-            # Extract database ID from list output (format: UUID)
-            DATABASE_ID=$(echo \"$DB_LIST\" | grep \"smtp-forge-db\" | grep -oE '[a-f0-9-]{36}' | head -1)
-            echo \"Found existing Database ID: $DATABASE_ID\"
-          else
-            echo \"Creating D1 database 'smtp-forge-db'...\"
-            CREATE_OUTPUT=$(npx wrangler d1 create smtp-forge-db 2>&1)
-            echo \"$CREATE_OUTPUT\"
-            # Extract database ID - look for UUID pattern after \"Database ID:\"
-            DATABASE_ID=$(echo \"$CREATE_OUTPUT\" | grep -oE '[a-f0-9-]{36}' | head -1)
-            echo \"Created new Database ID: $DATABASE_ID\"
-          fi
-          
-          if [ -z \"$DATABASE_ID\" ]; then
-            echo \"ERROR: Could not determine database ID\"
-            exit 1
-          fi
-          
-          echo \"CLOUDFLARE_D1_DATABASE_ID=$DATABASE_ID\" >> $GITHUB_ENV
-          echo \"Database ID set: $DATABASE_ID\"
+          echo \"Using D1 Database ID: b7ad7dfc-dee4-4b67-b291-814f30df99e5\"
+          echo \"CLOUDFLARE_D1_DATABASE_ID=b7ad7dfc-dee4-4b67-b291-814f30df99e5\" >> $GITHUB_ENV
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -95,12 +71,11 @@ jobs:
         if: github.event.inputs.skip_migrations != 'true'
         run: |
           echo \"Applying D1 migrations...\"
-          echo \"Using Database ID: ${{ env.CLOUDFLARE_D1_DATABASE_ID }}\"
           npx wrangler d1 migrations apply smtp-forge-db --remote --yes
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_D1_DATABASE_ID: ${{ env.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_D1_DATABASE_ID: b7ad7dfc-dee4-4b67-b291-814f30df99e5
 
       # Deploy to Cloudflare Workers
       - name: Deploy to Cloudflare Workers
@@ -108,14 +83,13 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Pass the database ID as a variable
-          command: deploy --config .output/wrangler.deploy.json --var CLOUDFLARE_D1_DATABASE_ID:${{ env.CLOUDFLARE_D1_DATABASE_ID }}
+          command: deploy --config .output/wrangler.deploy.json
 
       # Verify deployment
       - name: Verify deployment
         run: |
           echo \"✓ Deployment complete!\"
-          echo \"Worker URL: https://smtp-forge.${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.workers.dev\"
+          echo \"Worker URL: https://smtp-forge.5eb770ac7a7856f55750b927d5828ca2.workers.dev\"
           echo \"\"
           echo \"Next steps:\"
           echo \"1. Visit your worker URL to verify it's working\"

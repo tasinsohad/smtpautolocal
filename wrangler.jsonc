@@ -1,50 +1,21 @@
 {
-  // Cloudflare Workers deployment configuration for SMTP Forge
-  // Uses Workers mode for D1 integration
-  name: 'smtp-forge',
-  main: '.output/server/index.js',
-  compatibility_date: '2024-04-01',
-  compatibility_flags: ['nodejs_compat_v2'],
-  
-  // D1 SQLite database - edge-optimized relational storage
-  // Create with: wrangler d1 create smtp-forge-db
-  // 
-  // IMPORTANT: Set CLOUDFLARE_D1_DATABASE_ID in your environment
-  // - Local dev: add to .env.local or export in shell
-  // - CI/CD: set in GitHub secrets as CLOUDFLARE_D1_DATABASE_ID
-  d1_databases: [
-    {
-      binding: 'DB',
-      database_name: 'smtp-forge-db',
-      database_id: '${CLOUDFLARE_D1_DATABASE_ID}',
-      migrations_dir: 'migrations'
-    }
-  ],
-  
-  // Environment variables (use wrangler secret for production secrets)
-  vars: {
-    APP_ENV: 'production'
+  "name": "smtp-forge",
+  "main": ".output/server/index.js",
+  "compatibility_date": "2024-04-01",
+  "compatibility_flags": ["nodejs_compat_v2"],
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "smtp-forge-db",
+    "database_id": "b7ad7dfc-dee4-4b67-b291-814f30df99e5",
+    "migrations_dir": "migrations"
+  }],
+  "vars": {
+    "APP_ENV": "production"
   },
-  
-  // Static assets from TanStack Start build output
-  assets: '.output/public',
-  
-  // Edge compute optimization (requires Workers Paid plan)
-  // ⚠️ WARNING: 'smart' mode requires a Workers Paid plan!
-  // 
-  // If you're on the free tier, comment out or remove this section:
-  //
-  // placement: {
-  //   mode: 'smart'
-  // },
-  //
-  // The free tier still works, but Workers run from a single datacenter.
-  placement: {
-    mode: 'smart'
+  "assets": {
+    "directory": ".output/public"
   },
-  
-  // Build configuration
-  build: {
-    upload_environment_variables: ['APP_ENV', 'CLOUDFLARE_D1_DATABASE_ID']
+  "placement": {
+    "mode": "smart"
   }
 }

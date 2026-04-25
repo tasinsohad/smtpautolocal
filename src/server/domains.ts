@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireAuth } from "@/lib/auth.server";
+import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
 import { domains, dnsRecords, domainBatches, domainPlans, plannedInboxes } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
