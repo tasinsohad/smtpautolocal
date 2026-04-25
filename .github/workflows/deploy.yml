@@ -57,7 +57,7 @@ jobs:
       - name: Prepare deploy config
         run: npm run predeploy
 
-      # Use provided D1 database ID
+      # Use provided D1 database ID from wrangler.jsonc
       - name: Configure D1 database
         run: |
           echo \"Using D1 Database ID: b7ad7dfc-dee4-4b67-b291-814f30df99e5\"
@@ -71,7 +71,7 @@ jobs:
         if: github.event.inputs.skip_migrations != 'true'
         run: |
           echo \"Applying D1 migrations...\"
-          npx wrangler d1 migrations apply smtp-forge-db --remote --yes
+          npx wrangler d1 migrations apply smtp-forge-db --remote --yes --config wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
