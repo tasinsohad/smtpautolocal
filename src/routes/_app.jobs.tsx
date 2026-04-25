@@ -11,6 +11,7 @@ export const Route = createFileRoute("/_app/jobs")({
 });
 
 function JobsPage() {
+  const [wizardOpen, setWizardOpen] = useState(false);
   const { data: batches = [], isLoading } = useQuery({
     queryKey: ["domain-batches"],
     queryFn: () => listDomainBatches(),
@@ -27,8 +28,6 @@ function JobsPage() {
           <Plus className="h-4 w-4" /> Add Domains
         </Button>
       </div>
-
-      {wizardOpen && <AddDomainsWizard onClose={() => setWizardOpen(false)} />}
 
       {isLoading ? (
         <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>

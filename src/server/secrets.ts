@@ -7,7 +7,8 @@ import { eq } from "drizzle-orm";
 export const getSecrets = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const row = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -21,7 +22,8 @@ export const saveSecrets = createServerFn({ method: "POST" })
     cfAccountId: z.string().optional().nullable(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const existing = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -36,7 +38,8 @@ export const saveSecrets = createServerFn({ method: "POST" })
 export const getCfZones = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const secrets = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });

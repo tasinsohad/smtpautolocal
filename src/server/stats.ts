@@ -6,7 +6,8 @@ import { count, eq } from "drizzle-orm";
 export const getOverviewStats = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
 
     const [domainCount] = await db.select({ value: count() }).from(domains).where(eq(domains.userId, userId));
     const [inboxCount] = await db.select({ value: count() }).from(plannedInboxes).where(eq(plannedInboxes.userId, userId));

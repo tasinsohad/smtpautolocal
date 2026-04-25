@@ -8,7 +8,8 @@ export const listDnsRecords = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.select().from(dnsRecords)
       .where(and(eq(dnsRecords.domainId, data.domainId), eq(dnsRecords.userId, userId)))
       .orderBy(dnsRecords.type);
@@ -27,7 +28,8 @@ export const createDnsRecord = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => createDnsRecordSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const [res] = await db.insert(dnsRecords).values({
       userId,
       ...data,

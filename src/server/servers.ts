@@ -7,7 +7,8 @@ import { eq, and } from "drizzle-orm";
 export const listServers = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const rows = await db.select().from(servers).where(eq(servers.userId, userId));
     return rows.map((s: any) => ({
       ...s,
@@ -24,7 +25,8 @@ export const createServer = createServerFn({ method: "POST" })
     sshUser: z.string().default("root"),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const [row] = await db.insert(servers).values({
       userId,
       label: data.label,
@@ -40,7 +42,8 @@ export const deleteServer = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     await db.delete(servers).where(and(eq(servers.id, data.id), eq(servers.userId, userId)));
     return { ok: true };
   });

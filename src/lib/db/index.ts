@@ -1,35 +1,52 @@
-import { drizzle } from 'drizzle-orm/d1';
-import type { D1Database } from '@cloudflare/workers-types';
+// @ts-ignore - drizzle-orm exports drizzle from the postgres module
+import { drizzle } from 'drizzle-orm/postgres-js';
+// @ts-ignore
+import postgres from 'postgres';
 import * as schema from './schema';
 
-// Re-export types from the Cloudflare declarations
-export type { CloudflareWorkersEnv as CloudflareEnv };
+// For demo/development, use a mock if no env vars
+const useMock = !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Cache the database instance
-let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockDb: any = null;
 
-export function getDb(): ReturnType<typeof drizzle<typeof schema>> {
-  // In Cloudflare Workers, bindings are available via globalThis
-  // The binding name 'DB' matches our wrangler.jsonc configuration
-  const d1 = (globalThis as any).DB as D1Database | undefined;
+if (useMock) {
+  console.warn('⚠️  SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set. Using mock database.');
+  console.warn('   This is only for local development without Supabase.');
   
-  if (!d1) {
-    const message = [
-      "❌ Cloudflare D1 binding 'DB' not found!",
-      "",
-      "Make sure your wrangler.jsonc has:",
-      '  d1_databases: [{ binding: "DB", ... }]',
-      "",
-      "And that you have applied migrations:",
-      "  npm run db:migrate:local  # development",
-      "  npm run db:migrate:remote # production",
-    ].join('\n');
-    throw new Error(message);
-  }
-  
-  if (!dbInstance) {
-    dbInstance = drizzle(d1, { schema });
-  }
-  
-  return dbInstance;
+  // Create a mock database for local development
+  mockDb = {
+    query: {
+      users: { findFirst: async () => null },
+    },
+    insert: () => ({ values: () => ({ returning: async () => [{ id: 'mock-id', email: 'admin@smtpforge.local' }] }) }),
+    select: () => ({ from: () => ({ where: () => ({ orderBy: () => Promise.resolve([]) }) }) }),
+  };
 }
+
+// Cache the database instance per request
+const dbCache = new Map<string, ReturnType<typeof drizzle>>();
+
+export function getDb() {
+  if (useMock) return mockDb;
+  
+  const cacheKey = `db-${Math.random().toString(36).slice(2, 9)}`;
+  
+  if (!dbCache.has(cacheKey)) {
+    const supabaseUrl = process.env.SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    
+    // Use postgres for Drizzle ORM with Supabase
+    const sql = postgres(supabaseUrl, {
+      ssl: true,
+      pass: supabaseServiceKey,
+    });
+    
+    dbCache.set(cacheKey, drizzle(sql, { schema }));
+  }
+  
+  return dbCache.get(cacheKey)!;
+}
+
+// Export types
+export type SupabaseDb = ReturnType<typeof getDb>;

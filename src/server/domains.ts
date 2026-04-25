@@ -9,7 +9,8 @@ export const listDomains = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ batchId: z.string().optional() }).optional().parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     let query = db.select().from(domains).where(eq(domains.userId, userId));
     if (data?.batchId) {
       query = db.select().from(domains).where(and(eq(domains.userId, userId), eq(domains.batchId, data.batchId)));
@@ -21,7 +22,8 @@ export const getDomain = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.query.domains.findFirst({
       where: and(eq(domains.id, data.id), eq(domains.userId, userId)),
     });
@@ -39,7 +41,8 @@ export const updateDomain = createServerFn({ method: "POST" })
     plannedInboxCount: z.number().optional().nullable(),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const { id, ...rest } = data;
     await db.update(domains).set(rest).where(and(eq(domains.id, id), eq(domains.userId, userId)));
     return { ok: true };
@@ -49,7 +52,8 @@ export const deleteDomain = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     await db.delete(dnsRecords).where(eq(dnsRecords.domainId, data.id));
     await db.delete(plannedInboxes).where(eq(plannedInboxes.domainId, data.id));
     await db.delete(domainPlans).where(eq(domainPlans.domainId, data.id));
@@ -60,14 +64,16 @@ export const deleteDomain = createServerFn({ method: "POST" })
 export const listDomainPlans = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.select().from(domainPlans).where(eq(domainPlans.userId, userId));
   });
 
 export const listDomainBatches = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.select().from(domainBatches).where(eq(domainBatches.userId, userId)).orderBy(desc(domainBatches.createdAt));
   });
 
@@ -75,7 +81,8 @@ export const getDomainDetails = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const domain = await db.query.domains.findFirst({
       where: and(eq(domains.id, data.id), eq(domains.userId, userId)),
     });
@@ -98,7 +105,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
     names: z.array(z.string()),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
 
     let batchId: string | null = null;
     if (data.batchName) {

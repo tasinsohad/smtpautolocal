@@ -9,15 +9,10 @@ export default defineConfig({
   plugins: [
     tsConfigPaths(),
     tanstackRouter(),
-    tanstackStart({
-      server: {
-        preset: "cloudflare-workers",
-      },
-    }),
+    tanstackStart(),
     react(),
     tailwindcss(),
   ],
-  // Optimize for edge deployment
   build: {
     target: "esnext",
     minify: "esbuild",

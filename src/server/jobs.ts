@@ -13,7 +13,8 @@ export const createDomainBatch = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => createBatchSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const [res] = await db.insert(domainBatches).values({
       userId,
       name: data.name,
@@ -33,7 +34,8 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => templateSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     if (data.id && data.id !== "new") {
       await db.update(jobTemplates)
         .set({
@@ -58,7 +60,8 @@ export const deleteJobTemplate = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     await db.delete(jobTemplates).where(and(eq(jobTemplates.id, data.id), eq(jobTemplates.userId, userId)));
     return { ok: true };
   });
@@ -66,7 +69,8 @@ export const deleteJobTemplate = createServerFn({ method: "POST" })
 export const listJobTemplates = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     const templates = await db.query.jobTemplates.findMany({
       where: eq(jobTemplates.userId, userId),
     });

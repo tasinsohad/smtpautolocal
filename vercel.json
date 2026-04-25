@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "installCommand": "npm install",
-  "framework": "static"
+  \"$schema\": \"https://openapi.vercel.sh/vercel.json\",
+  \"buildCommand\": \"pnpm run build\",
+  \"devCommand\": \"pnpm run dev\",
+  \"installCommand\": \"pnpm install\"
 }

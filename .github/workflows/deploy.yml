@@ -1,21 +1,21 @@
-name: Deploy to Cloudflare Workers + D1
+name: Deploy to Vercel + Supabase
 
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-    inputs:
-      skip_migrations:
-        description: 'Skip D1 migrations (if already applied)'
-        required: false
-        default: 'false'
-        type: boolean
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy to Cloudflare
+    name: Deploy to Vercel
     
     steps:
       # Checkout code
@@ -27,71 +27,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       # Install dependencies
       - name: Install dependencies
-        run: npm ci
-
-      # Install Cloudflare Workers types
-      - name: Install Cloudflare types
-        run: npm install -D @cloudflare/workers-types
-
-      # Install Wrangler
-      - name: Install Wrangler
-        run: npm install -D wrangler
+        run: pnpm install
 
       # Run type checking
       - name: Type check
-        run: npm run typecheck
-
-      # Run linter
-      - name: Lint
-        run: npm run lint
+        run: pnpm run typecheck
 
       # Build application
       - name: Build application
-        run: npm run build
+        run: pnpm run build
 
-      # Prepare deployment config
-      - name: Prepare deploy config
-        run: npm run predeploy
-
-      # Use provided D1 database ID from wrangler.jsonc
-      - name: Configure D1 database
-        run: |
-          echo \"Using D1 Database ID: b7ad7dfc-dee4-4b67-b291-814f30df99e5\"
-          echo \"CLOUDFLARE_D1_DATABASE_ID=b7ad7dfc-dee4-4b67-b291-814f30df99e5\" >> $GITHUB_ENV
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      # Apply D1 migrations (unless skipped)
-      - name: Apply D1 migrations
-        if: github.event.inputs.skip_migrations != 'true'
-        run: |
-          echo \"Applying D1 migrations...\"
-          npx wrangler d1 migrations apply smtp-forge-db --remote --yes --config wrangler.jsonc
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_D1_DATABASE_ID: b7ad7dfc-dee4-4b67-b291-814f30df99e5
-
-      # Deploy to Cloudflare Workers
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
+      # Deploy to Vercel
+      - name: Deploy to Vercel
+        uses: amondtech/vercel-action@v2
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config .output/wrangler.deploy.json
-
-      # Verify deployment
-      - name: Verify deployment
-        run: |
-          echo \"✓ Deployment complete!\"
-          echo \"Worker URL: https://smtp-forge.5eb770ac7a7856f55750b927d5828ca2.workers.dev\"
-          echo \"\"
-          echo \"Next steps:\"
-          echo \"1. Visit your worker URL to verify it's working\"
-          echo \"2. Set up a custom domain in Cloudflare Dashboard if needed\"
-          echo \"3. Configure your DNS records for your domains\"
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'

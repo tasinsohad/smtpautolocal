@@ -9,7 +9,8 @@ export const getDomainPlan = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.query.domainPlans.findFirst({
       where: and(eq(domainPlans.domainId, data.domainId), eq(domainPlans.userId, userId)),
     });
@@ -19,7 +20,8 @@ export const listPlannedInboxes = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     return await db.select().from(plannedInboxes)
       .where(and(eq(plannedInboxes.domainId, data.domainId), eq(plannedInboxes.userId, userId)))
       .orderBy(plannedInboxes.subdomainFqdn, plannedInboxes.localPart);
@@ -34,7 +36,8 @@ export const regeneratePlan = createServerFn({ method: "POST" })
     names: z.array(z.string()),
   }).parse(d))
   .handler(async ({ data, context }) => {
-    const { db, userId } = context as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+const { db, userId } = context as any;
     
     const domain = await db.query.domains.findFirst({
       where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
