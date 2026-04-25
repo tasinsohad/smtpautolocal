@@ -1,6 +1,6 @@
 {
   "name": "smtp-forge",
-  "main": ".output/server/index.js",
+  "main": "dist/server/server.js",
   "compatibility_date": "2024-04-01",
   "compatibility_flags": ["nodejs_compat_v2"],
   "d1_databases": [{
@@ -13,7 +13,7 @@
     "APP_ENV": "production"
   },
   "assets": {
-    "directory": ".output/public"
+    "directory": "dist/client/assets"
   },
   "placement": {
     "mode": "smart"

@@ -25,7 +25,7 @@ if (existsSync(wranglerConfigPath)) {
 // Create our deploy config for Cloudflare Workers
 const deployConfig = {
   name: 'smtp-forge',
-  main: '.output/server/index.js',
+  main: 'dist/server/server.js',
   compatibility_date: '2024-04-01',
   compatibility_flags: ['nodejs_compat_v2'],
   // Include D1 databases from wrangler.jsonc (required for deployment)
@@ -33,7 +33,7 @@ const deployConfig = {
   vars: {
     APP_ENV: 'production'
   },
-  assets: '.output/public',
+  assets: 'dist/client/assets',
   // Edge compute optimization (requires Workers Paid plan)
   // Remove this section if on free tier
   placement: {
