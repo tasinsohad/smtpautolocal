@@ -4,48 +4,61 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
 
-// For demo/development, use a mock if no env vars
-const useMock = !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let mockDb: any = null;
-
-if (useMock) {
-  console.warn('⚠️  SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set. Using mock database.');
-  console.warn('   This is only for local development without Supabase.');
+// Check if Supabase is properly configured
+function hasSupabaseConfig(): boolean {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  // Create a mock database for local development
-  mockDb = {
-    query: {
-      users: { findFirst: async () => null },
-    },
-    insert: () => ({ values: () => ({ returning: async () => [{ id: 'mock-id', email: 'admin@smtpforge.local' }] }) }),
-    select: () => ({ from: () => ({ where: () => ({ orderBy: () => Promise.resolve([]) }) }) }),
-  };
+  // Check for presence and not placeholder values
+  return !!(
+    url && 
+    key && 
+    url.startsWith('https://') && 
+    !url.includes('your-project-url') &&
+    key !== 'your-service-role-key'
+  );
 }
 
-// Cache the database instance per request
-const dbCache = new Map<string, ReturnType<typeof drizzle>>();
+// Singleton DB instance for serverless
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let dbInstance: any = null;
 
-export function getDb() {
-  if (useMock) return mockDb;
+export function getDb(): any {
+  // Check for valid configuration and throw clear error if missing
+  if (!hasSupabaseConfig()) {
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+    
+    if (isProduction) {
+      throw new Error(
+        '❌ Missing Supabase environment variables in production!\n' +
+        'Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel environment variables.'
+      );
+    }
+    
+    throw new Error(
+      '❌ Supabase not configured!\n' +
+      'Please create a .env file with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.\n' +
+      'See .env.example for instructions.'
+    );
+  }
   
-  const cacheKey = `db-${Math.random().toString(36).slice(2, 9)}`;
-  
-  if (!dbCache.has(cacheKey)) {
+  // Reuse singleton connection (postgres pools connections automatically)
+  if (!dbInstance) {
     const supabaseUrl = process.env.SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     
-    // Use postgres for Drizzle ORM with Supabase
+    // Use SSL for production, disable for local development
+    const isLocal = supabaseUrl.includes('localhost');
+    
     const sql = postgres(supabaseUrl, {
-      ssl: true,
+      ssl: isLocal ? false : true,
       pass: supabaseServiceKey,
     });
     
-    dbCache.set(cacheKey, drizzle(sql, { schema }));
+    dbInstance = drizzle(sql, { schema });
   }
   
-  return dbCache.get(cacheKey)!;
+  return dbInstance;
 }
 
 // Export types
