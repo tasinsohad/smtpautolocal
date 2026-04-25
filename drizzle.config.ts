@@ -7,8 +7,8 @@ export default {
   driver: 'd1-http',
   dbCredentials: {
     wranglerConfigPath: './wrangler.jsonc',
-    // Alternative: Use environment variables for CI/CD pipelines
-    // accountId: process.env.CF_ACCOUNT_ID,
-    // databaseId: process.env.D1_DATABASE_ID,
+    // For local development, use the local D1 database
+    // The binding name must match 'DB' in wrangler.jsonc
+    dbName: 'smtp-forge-db',
   },
 } satisfies Config;

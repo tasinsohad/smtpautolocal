@@ -12,18 +12,15 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    // D1 migration commands
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply smtp-forge-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply smtp-forge-db --remote",
     "db:push:local": "wrangler d1 push smtp-forge-db --local",
     "db:push:remote": "wrangler d1 push smtp-forge-db --remote",
     "db:studio": "drizzle-kit studio",
-    // Deploy commands
     "predeploy": "node scripts/prepare-deploy.mjs",
     "deploy:workers": "npm run build && npm run predeploy && wrangler deploy .output/wrangler.deploy.json",
-    "deploy": "npm run build && npm run predeploy && wrangler deploy",
-    "deploy:pages": "npm run build && wrangler pages deploy .output/public --project-name=smtp-forge"
+    "deploy": "npm run build && npm run predeploy && wrangler deploy"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -87,7 +84,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.33.2",
+    "@cloudflare/workers-types": "^4.20250415.0",
     "@eslint/js": "^9.32.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
@@ -103,6 +100,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "wrangler": "^3.109.2"
   }
 }

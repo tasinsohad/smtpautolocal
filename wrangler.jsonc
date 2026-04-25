@@ -8,12 +8,15 @@
   
   // D1 SQLite database - edge-optimized relational storage
   // Create with: wrangler d1 create smtp-forge-db
-  // Update database_id with your actual D1 database ID
+  // 
+  // IMPORTANT: Set CLOUDFLARE_D1_DATABASE_ID in your environment
+  // - Local dev: add to .env.local or export in shell
+  // - CI/CD: set in GitHub secrets as CLOUDFLARE_D1_DATABASE_ID
   d1_databases: [
     {
       binding: 'DB',
       database_name: 'smtp-forge-db',
-      database_id: 'bbc4d43e-e880-4a67-8b1e-8ddd903c45be',
+      database_id: '${CLOUDFLARE_D1_DATABASE_ID}',
       migrations_dir: 'migrations'
     }
   ],
@@ -27,13 +30,21 @@
   assets: '.output/public',
   
   // Edge compute optimization (requires Workers Paid plan)
-  // Remove this section if on free tier
+  // ⚠️ WARNING: 'smart' mode requires a Workers Paid plan!
+  // 
+  // If you're on the free tier, comment out or remove this section:
+  //
+  // placement: {
+  //   mode: 'smart'
+  // },
+  //
+  // The free tier still works, but Workers run from a single datacenter.
   placement: {
     mode: 'smart'
   },
   
   // Build configuration
   build: {
-    upload_environment_variables: ['APP_ENV']
+    upload_environment_variables: ['APP_ENV', 'CLOUDFLARE_D1_DATABASE_ID']
   }
 }
