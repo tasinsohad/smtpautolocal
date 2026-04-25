@@ -33,7 +33,9 @@ const deployConfig = {
   vars: {
     APP_ENV: 'production'
   },
-  assets: 'dist/client/assets',
+  assets: {
+    directory: 'dist/client',
+  },
   // Edge compute optimization (requires Workers Paid plan)
   // Remove this section if on free tier
   placement: {

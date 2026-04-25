@@ -13,7 +13,7 @@
     "APP_ENV": "production"
   },
   "assets": {
-    "directory": "dist/client/assets"
+    "directory": "dist/client"
   },
   "placement": {
     "mode": "smart"
