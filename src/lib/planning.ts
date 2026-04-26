@@ -352,7 +352,7 @@ function naturalSplit(total: number, buckets: number): number[] {
         counts[idx]--;
       }
     }
-    adjustIdx++;
+adjustIdx++;
     if (adjustIdx > 100) break;
   }
 
