@@ -279,45 +279,37 @@ function naturalSplit(total: number, buckets: number): number[] {
       .slice(0, Math.min(buckets, total));
   }
 
-  const MIN_PER_SUBDOMAIN = 2;
-  const MAX_PER_SUBDOMAIN = 8;
+  const minPerSub = 2;
+  const maxPerSub = 8;
   
-  const counts: number[] = [];
-  const target = Math.floor(total / buckets);
+  const result: number[] = [];
+  const targetAvg = Math.floor(total / buckets);
   
   for (let i = 0; i < buckets; i++) {
-    let count;
-    if (i === 0) {
-      count = randInt(Math.min(3, total), Math.min(MAX_PER_SUBDOMAIN, total));
-    } else {
-      count = randInt(MIN_PER_SUBDOMAIN, MAX_PER_SUBDOMAIN);
-    }
-    counts.push(count);
+    let num = randInt(minPerSub, maxPerSub);
+    if (num > total) num = total;
+    result.push(num);
   }
   
-  const currentSum = counts.reduce((a, b) => a + b, 0);
-  const diff = total - currentSum;
+  let sum = result.reduce((a, b) => a + b, 0);
+  let attempts = 0;
   
-  let adjustCount = 0;
-  while (counts.reduce((a, b) => a + b, 0) !== total && adjustCount < 50) {
-    const runningSum = counts.reduce((a, b) => a + b, 0);
-    const newDiff = total - runningSum;
+  while (sum !== total && attempts < 50) {
+    const diff = total - sum;
+    if (diff === 0) break;
     
-    if (newDiff > 0) {
-      const idx = randInt(0, buckets - 1);
-      if (counts[idx] < MAX_PER_SUBDOMAIN) {
-        counts[idx]++;
-      }
-    } else if (newDiff < 0) {
-      const idx = randInt(0, buckets - 1);
-      if (counts[idx] > MIN_PER_SUBDOMAIN) {
-        counts[idx]--;
-      }
+    const pos = randInt(0, buckets - 1);
+    if (diff > 0 && result[pos] < maxPerSub) {
+      result[pos] += 1;
+      sum++;
+    } else if (diff < 0 && result[pos] > minPerSub) {
+      result[pos] -= 1;
+      sum--;
     }
-    adjustCount++;
+    attempts++;
   }
 
-  return counts;
+  return result;
 }
 
 export function parseList(value: string): string[] {
