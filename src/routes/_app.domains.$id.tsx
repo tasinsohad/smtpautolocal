@@ -26,6 +26,14 @@ function DomainDetailsPage() {
   const records = (data as any)?.records ?? [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const inboxes = (data as any)?.inboxes ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const plan = (data as any)?.plan;
+
+  // Group inboxes by subdomain for the breakdown
+  const subdomainBreakdown = inboxes.reduce((acc: any, ib: any) => {
+    acc[ib.subdomainPrefix] = (acc[ib.subdomainPrefix] || 0) + 1;
+    return acc;
+  }, {});
 
   const pushDnsMutation = useMutation({
     mutationFn: () => pushDnsToCloudflare({ data: { domainId: id } }),
@@ -196,6 +204,26 @@ function DomainDetailsPage() {
         </div>
       </div>
 
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Inboxes</div>
+          <div className="text-3xl font-black text-[#4DB584]">{plan?.totalInboxes || 0}</div>
+          <div className="text-[10px] text-gray-500">Planned across all subdomains</div>
+        </div>
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Subdomains</div>
+          <div className="text-3xl font-black text-blue-500">{plan?.subdomainCount || 0}</div>
+          <div className="text-[10px] text-gray-500">Unique routing prefixes</div>
+        </div>
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Per Subdomain</div>
+          <div className="text-3xl font-black text-purple-500">
+            {plan?.subdomainCount ? (plan.totalInboxes / plan.subdomainCount).toFixed(1) : 0}
+          </div>
+          <div className="text-[10px] text-gray-500">Balanced distribution</div>
+        </div>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -218,20 +246,37 @@ function DomainDetailsPage() {
 
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Globe className="h-5 w-5 text-gray-500" /> DNS Records
+            <Zap className="h-5 w-5 text-gray-500" /> Subdomain Breakdown
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(subdomainBreakdown).map(([prefix, count]: any) => (
+              <div key={prefix} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                <span className="text-xs font-mono font-bold text-gray-700">{prefix}</span>
+                <span className="h-4 w-[1px] bg-gray-200" />
+                <span className="text-xs font-bold text-[#4DB584]">{count} inboxes</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-1">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Globe className="h-5 w-5 text-gray-500" /> DNS Blueprint
           </h2>
           {records.length > 0 ? (
-            <div className="space-y-2 max-h-[300px] overflow-auto scrollbar-thin">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {records.map((record: any) => (
                 <div
                   key={record.id}
                   className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 border border-slate-100"
                 >
-                  <div className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded uppercase w-12 text-center">{record.type}</div>
-                  <div className="font-mono text-xs text-slate-700">
+                  <div className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded uppercase w-10 text-center">{record.type}</div>
+                  <div className="font-mono text-[10px] text-slate-700 truncate flex-1">
                     {record.name === "@" ? domain.name : `${record.name}.${domain.name}`}
                   </div>
-                  <div className="ml-auto text-[10px] text-slate-400 truncate max-w-[150px] font-mono">{record.content}</div>
+                  <div className="text-[9px] text-slate-400 truncate max-w-[80px] font-mono">{record.content}</div>
                 </div>
               ))}
             </div>
