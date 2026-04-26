@@ -178,10 +178,10 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   if (prefixes.length === 0) throw new Error("No subdomain prefixes provided");
   if (names.length === 0) throw new Error("No names provided");
 
-  const minAllowed = Math.max(2, input.minSubdomains ?? 2);
-  const maxAllowed = Math.min(prefixes.length, totalInboxes, input.maxSubdomains ?? 15);
+  const minAllowed = Math.max(4, input.minSubdomains ?? 4);
+  const maxAllowed = input.maxSubdomains ?? (totalInboxes > 50 ? 15 : 10);
 
-  const targetPerSub = input.targetPerSubdomain ?? randInt(4, 12);
+  const targetPerSub = input.targetPerSubdomain ?? randInt(4, 10);
   const idealCount = Math.ceil(totalInboxes / targetPerSub);
   
   const jitter = randInt(-2, 2);
@@ -281,36 +281,40 @@ function naturalSplit(total: number, buckets: number): number[] {
       .slice(0, Math.min(buckets, total));
   }
 
-  const BASE_WEIGHT = 0.7;
-  const weights: number[] = [];
-  let totalWeight = 0;
+  const MIN_PER_SUBDOMAIN = 2;
+  const MAX_PER_SUBDOMAIN = 8;
   
+  const baseCount = Math.floor(total / buckets);
+  const remainder = total % buckets;
+  
+  const counts: number[] = [];
   for (let i = 0; i < buckets; i++) {
-    const decay = Math.pow(BASE_WEIGHT, i);
-    const noise = 0.3 + rand() * 0.7;
-    const rareBonus = rand() < 0.15 ? randFloat(0.5, 1.5) : 0;
-    const w = decay * noise + rareBonus;
-    weights.push(w);
-    totalWeight += w;
+    const isHighPriority = i < remainder;
+    const base = isHighPriority ? Math.ceil(total / buckets) : Math.floor(total / buckets);
+    const varied = randInt(-2, 2);
+    let count = base + varied;
+    count = Math.max(MIN_PER_SUBDOMAIN, Math.min(MAX_PER_SUBDOMAIN, count));
+    counts.push(count);
   }
-
-  const raw = weights.map((w) => (w / totalWeight) * total);
-
-  const counts = raw.map((v) => Math.max(1, Math.round(v)));
-
-  let diff = counts.reduce((a, b) => a + b, 0) - total;
-  while (diff !== 0) {
-    const idx = randInt(0, buckets - 1);
-    if (diff > 0 && counts[idx] > 1) {
-      counts[idx]--;
-      diff--;
-    } else if (diff < 0) {
-      counts[idx]++;
-      diff++;
-    } else {
-      break;
+  
+  const diff = total - counts.reduce((a, b) => a + b, 0);
+  let adjustIdx = 0;
+  while (counts.reduce((a, b) => a + b, 0) !== total) {
+    const currSum = counts.reduce((a, b) => a + b, 0);
+    const newDiff = total - currSum;
+    if (newDiff > 0) {
+      const idx = randInt(0, buckets - 1);
+      if (counts[idx] < MAX_PER_SUBDOMAIN) {
+        counts[idx]++;
+      }
+    } else if (newDiff < 0) {
+      const idx = randInt(0, buckets - 1);
+      if (counts[idx] > MIN_PER_SUBDOMAIN) {
+        counts[idx]--;
+      }
     }
-    if (buckets > 100) break;
+    adjustIdx++;
+    if (adjustIdx > 100) break;
   }
 
   return counts;
