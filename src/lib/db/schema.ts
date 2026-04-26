@@ -64,6 +64,8 @@ export const domains = pgTable("domains", {
   serverId: uuid("server_id").references(() => servers.id),
   name: text("name").notNull(),
   status: text("status").notNull().default("pending"),
+  ipAddress: text("ip_address"),
+  sshUser: text("ssh_user"),
   cfZoneId: text("cf_zone_id"),
   cfAccountId: text("cf_account_id"),
   mailcowHostname: text("mailcow_hostname"),

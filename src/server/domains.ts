@@ -298,6 +298,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
             batchId,
             name: row.domain,
             status: "pending",
+            ipAddress: row.ipAddress,
+            sshUser: row.sshUser || "root",
             plannedInboxCount: row.inboxCount,
             cfZoneId,
           })

@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getDomainDetails, pushDnsToCloudflare } from "@/server/domains";
 import { provisionServer } from "@/server/provisioning";
 import { setupMailcowDomain, fetchDkimAndSync } from "@/server/mailcow";
-import { Globe, Server, AlertCircle, Loader2, ArrowLeft, Send, Zap, Mail, ShieldCheck } from "lucide-react";
+import { Globe, Server, AlertCircle, Loader2, ArrowLeft, Send, Zap, Mail, ShieldCheck, ChevronDown, ChevronRight, Network, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export const Route = createFileRoute("/_app/domains/$id")({
   component: DomainDetailsPage,
@@ -93,13 +94,17 @@ function DomainDetailsPage() {
 
   const exportCsv = () => {
     if (!inboxes.length) return;
-    const headers = ["Email", "Local Part", "Domain", "Name", "Format"];
+    const headers = ["Domain", "Subdomain Prefix", "Subdomain FQDN", "Email Address", "Local Part", "Person Name", "Format", "IP Address", "SSH User"];
     const rows = inboxes.map((ib: any) => [
+      domain.name,
+      ib.subdomainPrefix,
+      ib.subdomainFqdn,
       ib.email,
       ib.localPart,
-      ib.subdomainFqdn,
       ib.personName,
-      ib.format
+      ib.format,
+      domain.ipAddress || "",
+      domain.sshUser || ""
     ]);
     
     const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
@@ -227,26 +232,31 @@ function DomainDetailsPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Server className="h-5 w-5 text-gray-500" /> Assigned Server
+            <Server className="h-5 w-5 text-gray-500" /> Deployment Target
           </h2>
-          {domain.server ? (
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100">
-                <Server className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="font-medium">{domain.server.label}</div>
-                <div className="text-sm text-gray-500">{domain.server.ipAddress}</div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100">
+              <Server className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <div className="font-medium">{domain.name}</div>
+              <div className="text-sm text-gray-500 flex items-center gap-3">
+                <span className="flex items-center gap-1">
+                  <Network className="h-3 w-3" />
+                  {domain.ipAddress || "No IP configured"}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Key className="h-3 w-3" />
+                  {domain.sshUser || "root"}
+                </span>
               </div>
             </div>
-          ) : (
-            <div className="text-sm text-gray-500 italic">No server assigned yet.</div>
-          )}
+          </div>
         </div>
 
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Zap className="h-5 w-5 text-gray-500" /> Subdomain Breakdown
+            <Network className="h-5 w-5 text-gray-500" /> Subdomain Breakdown
           </h2>
           <div className="flex flex-wrap gap-2">
             {Object.entries(subdomainBreakdown).map(([prefix, count]: any) => (
@@ -289,7 +299,7 @@ function DomainDetailsPage() {
       <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Mail className="h-5 w-5 text-gray-500" /> Planned Inboxes
+            <Mail className="h-5 w-5 text-gray-500" /> Planned Inboxes by Subdomain
           </h2>
           <Button
             variant="outline"
@@ -302,31 +312,18 @@ function DomainDetailsPage() {
         </div>
 
         {inboxes.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-gray-100">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
-                <tr>
-                  <th className="px-6 py-3">Email Address</th>
-                  <th className="px-6 py-3">Display Name</th>
-                  <th className="px-6 py-3">Subdomain</th>
-                  <th className="px-6 py-3">Format</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {inboxes.map((ib: any) => (
-                  <tr key={ib.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-gray-900">{ib.email}</td>
-                    <td className="px-6 py-4 text-gray-600">{ib.personName}</td>
-                    <td className="px-6 py-4 text-gray-500 font-mono text-xs">{ib.subdomainPrefix}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase">
-                        {ib.format}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col gap-2">
+            {Object.entries(subdomainBreakdown).map(([prefix, count]: [string, number]) => {
+              const subdomainInboxes = inboxes.filter((ib: any) => ib.subdomainPrefix === prefix);
+              return (
+                <SubdomainInboxSection 
+                  key={prefix} 
+                  prefix={prefix} 
+                  domain={domain.name} 
+                  inboxes={subdomainInboxes} 
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="text-sm text-gray-500 italic py-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
@@ -334,6 +331,76 @@ function DomainDetailsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SubdomainInboxSection({ prefix, domain, inboxes }: { prefix: string; domain: string; inboxes: any[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          {expanded ? (
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          ) : (
+            <ChevronRight className="h-5 w-5 text-gray-400" />
+          )}
+          <Network className="h-5 w-5 text-purple-500" />
+          <div>
+            <div className="font-semibold text-gray-900">{prefix}.{domain}</div>
+            <div className="text-xs text-gray-500">{inboxes.length} mailboxes</div>
+          </div>
+        </div>
+        <div className="flex -space-x-2">
+          {inboxes.slice(0, 4).map((ib: any, i: number) => (
+            <div 
+              key={ib.id} 
+              className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-blue-600"
+              style={{ zIndex: 4 - i }}
+              title={ib.email}
+            >
+              {ib.personName?.charAt(0) || "?"}
+            </div>
+          ))}
+          {inboxes.length > 4 && (
+            <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-500">
+              +{inboxes.length - 4}
+            </div>
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-gray-100 bg-gray-50/30">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
+              <tr>
+                <th className="px-4 py-2">Email Address</th>
+                <th className="px-4 py-2">Display Name</th>
+                <th className="px-4 py-2">Format</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {inboxes.map((ib: any) => (
+                <tr key={ib.id} className="hover:bg-gray-100/50 transition-colors">
+                  <td className="px-4 py-3 font-medium text-gray-900">{ib.email}</td>
+                  <td className="px-4 py-3 text-gray-600">{ib.personName}</td>
+                  <td className="px-4 py-3">
+                    <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase">
+                      {ib.format}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
