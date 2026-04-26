@@ -1,5 +1,73 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+function MatrixAnimation() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+    let columns = Math.floor(width / 20);
+    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$+-*/=%&_#";
+    const charArray = characters.split("");
+    const drops: number[] = [];
+
+    for (let i = 0; i < columns; i++) {
+      drops[i] = 1;
+    }
+
+    let frameCount = 0;
+    const draw = () => {
+      ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = "#4DB584";
+      ctx.font = "15px monospace";
+
+      for (let i = 0; i < drops.length; i++) {
+        const text = charArray[Math.floor(Math.random() * charArray.length)];
+        ctx.fillText(text, i * 20, drops[i] * 20);
+
+        if (drops[i] * 20 > height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i]++;
+      }
+      frameCount++;
+    };
+
+    const interval = setInterval(draw, 33);
+
+    const handleResize = () => {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      columns = Math.floor(width / 20);
+      for (let i = 0; i < columns; i++) {
+        if (drops[i] === undefined) drops[i] = 1;
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-[100] opacity-40"
+      style={{ mixBlendMode: "screen" }}
+    />
+  );
+}
 import { addDomainsWizardAction, listDomainBatches, validateDomainsAgainstZones, listDomains } from "@/server/domains";
 import { listServers } from "@/server/servers";
 import { listJobTemplates, saveJobTemplate, deleteJobTemplate } from "@/server/jobs";
@@ -207,6 +275,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+        {loading && <MatrixAnimation />}
         <DialogHeader className="p-8 bg-[#23242A] text-white">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">

@@ -98,14 +98,14 @@ function weightedRandom<T>(items: T[], weights: number[]): T {
   return items[items.length - 1];
 }
 
-function shuffle<T>(arr: T[]): T[] {
+export const shuffle = <T>(arr: T[]): T[] => {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
+};
 
 function sample<T>(arr: T[], count: number): T[] {
   const shuffled = shuffle(arr);
