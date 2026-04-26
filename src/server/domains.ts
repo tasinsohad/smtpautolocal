@@ -168,8 +168,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
-    if (!db) return { okCount: 0, error: "Database not connected" };
+    const { db, userId, dbError } = context as any;
+    if (!db) return { okCount: 0, error: dbError || "Database not connected" };
 
     try {
       let batchId: string | null = null;

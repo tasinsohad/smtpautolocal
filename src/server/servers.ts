@@ -8,8 +8,11 @@ export const listServers = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
-    if (!db) return [];
+    const { db, userId, dbError } = context as any;
+    if (!db) {
+      console.error("listServers failed:", dbError);
+      return [];
+    }
 
     try {
       const rows = await db.select().from(servers).where(eq(servers.userId, userId));
@@ -36,8 +39,8 @@ export const createServer = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
-    if (!db) return { error: "Database not connected" };
+    const { db, userId, dbError } = context as any;
+    if (!db) return { error: dbError || "Database not connected" };
 
     try {
       const [row] = await db
@@ -62,8 +65,8 @@ export const deleteServer = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
-    if (!db) return { ok: false, error: "Database not connected" };
+    const { db, userId, dbError } = context as any;
+    if (!db) return { ok: false, error: dbError || "Database not connected" };
 
     try {
       await db.delete(servers).where(and(eq(servers.id, data.id), eq(servers.userId, userId)));

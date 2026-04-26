@@ -46,6 +46,8 @@ export function getDb(): any {
 
     const sql = postgres(dbUrl, {
       ssl: isLocal ? false : "require",
+      // REQUIRED for Supabase Transaction Pooler (port 6543)
+      prepare: false,
       // Add connection timeout to prevent hanging
       connect_timeout: 10,
       // Connection timeout for queries

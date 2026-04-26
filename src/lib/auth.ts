@@ -32,19 +32,19 @@ export const requireAuth = createMiddleware().server(async ({ next }: any) => {
       userId = user.id;
     }
   } catch (error) {
-    console.error("Database connection error (using fallback user):", error);
+    console.error("CRITICAL: Database connection error:", error);
     user = { id: "dev-user", email: DEFAULT_USER_EMAIL };
     userId = "dev-user";
     db = null;
+    return next({
+      context: {
+        db: null,
+        userId: "dev-user",
+        user: { id: "dev-user", email: DEFAULT_USER_EMAIL },
+        dbError: String(error),
+      },
+    });
   }
-
-  return next({
-    context: {
-      db,
-      userId,
-      user: user ?? { id: "dev-user", email: DEFAULT_USER_EMAIL },
-    },
-  });
 });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
