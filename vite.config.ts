@@ -19,7 +19,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   ssr: {
-    external: ["node-ssh", "cloudflare", "ssh2"],
+    external: ["node-ssh", "cloudflare", "ssh2", "bullmq", "ioredis"],
   },
   server: {
     hmr: {
