@@ -35,8 +35,8 @@ export const createDomainBatch = createServerFn({ method: "POST" })
 const templateSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
-  subdomainPrefixes: z.array(z.string()),
-  personNames: z.array(z.string()),
+  subdomainPrefixes: z.union([z.array(z.string()), z.string()]),
+  personNames: z.union([z.array(z.string()), z.string()]),
 });
 
 export const saveJobTemplate = createServerFn({ method: "POST" })
@@ -47,14 +47,26 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
     const { db, userId } = context as any;
     if (!db) return { error: "Database not connected" };
 
+    // Handle both string and array inputs
+    const prefixes = Array.isArray(data.subdomainPrefixes) 
+      ? data.subdomainPrefixes 
+      : typeof data.subdomainPrefixes === 'string'
+        ? data.subdomainPrefixes.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean)
+        : [];
+    const names = Array.isArray(data.personNames)
+      ? data.personNames
+      : typeof data.personNames === 'string'
+        ? data.personNames.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean)
+        : [];
+
     try {
       if (data.id && data.id !== "new") {
         await db
           .update(jobTemplates)
           .set({
             name: data.name,
-            subdomainPrefixes: JSON.stringify(data.subdomainPrefixes),
-            personNames: JSON.stringify(data.personNames),
+            subdomainPrefixes: JSON.stringify(prefixes),
+            personNames: JSON.stringify(names),
           })
           .where(and(eq(jobTemplates.id, data.id), eq(jobTemplates.userId, userId)));
         return { id: data.id };
@@ -64,8 +76,8 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
           .values({
             userId,
             name: data.name,
-            subdomainPrefixes: JSON.stringify(data.subdomainPrefixes),
-            personNames: JSON.stringify(data.personNames),
+            subdomainPrefixes: JSON.stringify(prefixes),
+            personNames: JSON.stringify(names),
           })
           .returning();
         return res;
