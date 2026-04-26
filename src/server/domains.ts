@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
-import { domains, dnsRecords, domainBatches, domainPlans, plannedInboxes, cloudflareZones } from "@/lib/db/schema";
+import { domains, dnsRecords, domainBatches, domainPlans, plannedInboxes, cloudflareZones, userSecrets } from "@/lib/db/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 import { planDomain } from "@/lib/planning";
 
