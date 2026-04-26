@@ -164,11 +164,16 @@ export const getDomainDetails = createServerFn({ method: "GET" })
     try {
       const domain = await db.query.domains.findFirst({
         where: and(eq(domains.id, data.id), eq(domains.userId, userId)),
+        with: {
+          server: true,
+        },
       });
       const records = await db.select().from(dnsRecords).where(eq(dnsRecords.domainId, data.id));
-      return { domain, records };
-    } catch {
-      return { domain: null, records: [] };
+      const inboxes = await db.select().from(plannedInboxes).where(eq(plannedInboxes.domainId, data.id));
+      return { domain, records, inboxes };
+    } catch (error) {
+      console.error("getDomainDetails failed:", error);
+      return { domain: null, records: [], inboxes: [] };
     }
   });
 
