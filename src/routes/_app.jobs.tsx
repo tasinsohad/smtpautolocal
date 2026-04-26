@@ -6,6 +6,8 @@ import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
+import { AddDomainWizard } from "@/components/AddDomainWizard";
+
 export const Route = createFileRoute("/_app/jobs")({
   component: JobsPage,
 });
@@ -26,11 +28,13 @@ function JobsPage() {
         </div>
         <Button
           onClick={() => setWizardOpen(true)}
-          className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2"
+          className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2 shadow-lg shadow-[#4DB584]/20"
         >
           <Plus className="h-4 w-4" /> Add Domains
         </Button>
       </div>
+
+      <AddDomainWizard open={wizardOpen} onOpenChange={setWizardOpen} />
 
       {isLoading ? (
         <div className="flex justify-center py-20">

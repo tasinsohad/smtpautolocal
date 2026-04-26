@@ -212,8 +212,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
             totalInboxes: plan.totalInboxes,
             subdomainCount: plan.subdomainCount,
             status: "planned",
-            prefixesSnapshot: JSON.stringify(data.prefixes),
-            namesSnapshot: JSON.stringify(data.names),
+            prefixesSnapshot: data.prefixes,
+            namesSnapshot: data.names,
           })
           .returning();
 
