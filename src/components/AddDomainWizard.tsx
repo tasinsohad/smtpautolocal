@@ -51,8 +51,8 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const [validationResults, setValidationResults] = useState<{ name: string; valid: boolean; zoneId: string | null }[]>([]);
 
   // Global settings
-  const [prefixesText, setPrefixesText] = useState("mail,web,app,dev,api,shop,blog,news,info,support,cloud,portal");
-  const [namesText, setNamesText] = useState("John,Michael,David,Chris,James,Robert,Emily,Sarah,Jessica,Emma,Linda,Mary");
+  const [prefixesText, setPrefixesText] = useState("mail\nweb\napp\ndev\napi\nshop\nblog\nnews\ninfo\nsupport\ncloud\nportal");
+  const [namesText, setNamesText] = useState("John\nMichael\nDavid\nChris\nJames\nRobert\nEmily\nSarah\nJessica\nEmma\nLinda\nMary");
 
   const { data: servers = [] } = useQuery({
     queryKey: ["servers"],
@@ -133,10 +133,10 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
   const applyTemplate = (template: any) => {
     if (template.subdomainPrefixes) {
-      setPrefixesText(template.subdomainPrefixes.join(", "));
+      setPrefixesText(template.subdomainPrefixes.join("\n"));
     }
     if (template.personNames) {
-      setNamesText(template.personNames.join(", "));
+      setNamesText(template.personNames.join("\n"));
     }
     setSelectedTemplateId(template.id);
     toast.success(`Applied template: ${template.name}`);
@@ -299,7 +299,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     value={prefixesText}
                     onChange={(e) => setPrefixesText(e.target.value)}
                     className="text-xs h-36 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
-                    placeholder="mail, web, app..."
+                    placeholder="mail&#10;web&#10;app&#10;dev..."
                   />
                 </div>
                 <div className="flex flex-col gap-3">
@@ -313,7 +313,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     value={namesText}
                     onChange={(e) => setNamesText(e.target.value)}
                     className="text-xs h-36 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
-                    placeholder="John, Mary, Michael..."
+                    placeholder="John&#10;Mary&#10;Michael..."
                   />
                 </div>
               </div>
