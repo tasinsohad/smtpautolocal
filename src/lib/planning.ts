@@ -313,47 +313,9 @@ function naturalSplit(total: number, buckets: number): number[] {
       if (counts[idx] > MIN_PER_SUBDOMAIN) {
         counts[idx]--;
       }
+}
     }
     adjustCount++;
-  }
-
-  return counts;
-}
-
-  const MIN_PER_SUBDOMAIN = 2;
-  const MAX_PER_SUBDOMAIN = 8;
-  
-  const baseCount = Math.floor(total / buckets);
-  const remainder = total % buckets;
-  
-  const counts: number[] = [];
-  for (let i = 0; i < buckets; i++) {
-    const isHighPriority = i < remainder;
-    const base = isHighPriority ? Math.ceil(total / buckets) : Math.floor(total / buckets);
-    const varied = randInt(-2, 2);
-    let count = base + varied;
-    count = Math.max(MIN_PER_SUBDOMAIN, Math.min(MAX_PER_SUBDOMAIN, count));
-    counts.push(count);
-  }
-  
-  const diff = total - counts.reduce((a, b) => a + b, 0);
-  let adjustIdx = 0;
-  while (counts.reduce((a, b) => a + b, 0) !== total) {
-    const currSum = counts.reduce((a, b) => a + b, 0);
-    const newDiff = total - currSum;
-    if (newDiff > 0) {
-      const idx = randInt(0, buckets - 1);
-      if (counts[idx] < MAX_PER_SUBDOMAIN) {
-        counts[idx]++;
-      }
-    } else if (newDiff < 0) {
-      const idx = randInt(0, buckets - 1);
-      if (counts[idx] > MIN_PER_SUBDOMAIN) {
-        counts[idx]--;
-      }
-    }
-adjustIdx++;
-    if (adjustIdx > 100) break;
   }
 
   return counts;
