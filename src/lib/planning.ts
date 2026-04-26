@@ -276,7 +276,7 @@ function naturalSplit(total: number, buckets: number): number[] {
     return new Array(buckets)
       .fill(1)
       .map((_, i) => (i < total ? 1 : 0))
-      .slice(0, Math.min(buckets, total)));
+      .slice(0, Math.min(buckets, total));
   }
 
   const MIN_PER_SUBDOMAIN = 2;
