@@ -281,7 +281,6 @@ function naturalSplit(total: number, buckets: number): number[] {
   const maxPerSub = 8;
   
   const result: number[] = [];
-  const targetAvg = Math.floor(total / buckets);
   
   for (let i = 0; i < buckets; i++) {
     let num = randInt(minPerSub, maxPerSub);
@@ -290,19 +289,23 @@ function naturalSplit(total: number, buckets: number): number[] {
   }
   
   let sum = result.reduce((a, b) => a + b, 0);
-  let attempts = 0;
   
-  while (sum !== total && attempts < 50) {
+  let attempts = 0;
+  while (sum !== total && attempts < 100) {
     const diff = total - sum;
     if (diff === 0) break;
     
     const pos = randInt(0, buckets - 1);
-    if (diff > 0 && result[pos] < maxPerSub) {
-      result[pos] += 1;
-      sum++;
-    } else if (diff < 0 && result[pos] > minPerSub) {
-      result[pos] -= 1;
-      sum--;
+    const current = result[pos];
+    
+    if (diff > 0 && current < maxPerSub) {
+      const add = randInt(1, Math.min(maxPerSub - current, diff));
+      result[pos] = current + add;
+      sum += add;
+    } else if (diff < 0 && current > minPerSub) {
+      const sub = randInt(1, Math.min(current - minPerSub, -diff));
+      result[pos] = current - sub;
+      sum -= sub;
     }
     attempts++;
   }
