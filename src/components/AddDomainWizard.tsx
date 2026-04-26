@@ -138,23 +138,31 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
         <div className="bg-white min-h-[400px] flex flex-col">
           {step === 1 && (
-            <div className="p-8 flex flex-col gap-6 flex-1">
-              <div className="flex flex-col gap-2">
-                <Label className="text-gray-700 font-semibold">Batch Name</Label>
+            <div className="p-8 flex flex-col gap-8 flex-1">
+              <div className="flex flex-col gap-3">
+                <Label className="text-gray-900 font-bold text-sm tracking-tight">Batch Name</Label>
                 <Input
                   placeholder="e.g. Winter Campaign 2024"
                   value={batchName}
                   onChange={(e) => setBatchName(e.target.value)}
-                  className="rounded-2xl border-gray-100 bg-gray-50 focus:bg-white transition-colors"
+                  className="rounded-2xl border-gray-100 bg-gray-50/50 focus:bg-white h-12 px-5 transition-all shadow-sm"
                 />
               </div>
-              <div className="flex flex-col gap-2">
-                <Label className="text-gray-700 font-semibold">Domains (one per line)</Label>
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col">
+                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Domains List</Label>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Enter one domain per line</p>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">
+                    {parseList(domainList).length} detected
+                  </span>
+                </div>
                 <Textarea
                   placeholder="example.com\nanother.net\nthird.io"
                   value={domainList}
                   onChange={(e) => setDomainList(e.target.value)}
-                  className="min-h-[200px] rounded-2xl border-gray-100 bg-gray-50 focus:bg-white transition-colors resize-none"
+                  className="min-h-[220px] rounded-[1.5rem] border-gray-100 bg-gray-50/50 focus:bg-white p-5 transition-all resize-none shadow-inner leading-relaxed"
                   required
                 />
               </div>
@@ -162,54 +170,88 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
           )}
 
           {step === 2 && (
-            <div className="p-8 flex flex-col gap-4 flex-1 overflow-auto max-h-[500px]">
-              <div className="grid grid-cols-[1fr,150px,100px,100px] gap-4 px-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                <div>Domain</div>
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="px-8 py-4 bg-gray-50/50 border-b border-gray-100 grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">
+                <div>Domain Name</div>
                 <div>IP Address</div>
                 <div>SSH User</div>
                 <div>Inboxes</div>
               </div>
-              {domainRows.map((row, i) => (
-                <div key={i} className="grid grid-cols-[1fr,150px,100px,100px] gap-4 items-center bg-gray-50 p-3 rounded-2xl ring-1 ring-black/5">
-                  <div className="font-medium text-gray-900 truncate">{row.domain}</div>
-                  <Input 
-                    value={row.ipAddress} 
-                    onChange={(e) => updateRow(i, 'ipAddress', e.target.value)}
-                    className="h-9 rounded-xl border-none bg-white shadow-sm text-xs"
-                  />
-                  <Input 
-                    value={row.sshUser} 
-                    onChange={(e) => updateRow(i, 'sshUser', e.target.value)}
-                    className="h-9 rounded-xl border-none bg-white shadow-sm text-xs"
-                  />
-                  <Input 
-                    type="number"
-                    value={row.inboxCount} 
-                    onChange={(e) => updateRow(i, 'inboxCount', Number(e.target.value))}
-                    className="h-9 rounded-xl border-none bg-white shadow-sm text-xs"
-                  />
-                </div>
-              ))}
+              <div className="p-4 px-8 flex flex-col gap-3 flex-1 overflow-auto max-h-[450px] scrollbar-thin scrollbar-thumb-gray-200">
+                {domainRows.map((row, i) => (
+                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
+                    <div className="font-semibold text-gray-700 truncate text-sm px-1" title={row.domain}>
+                      {row.domain}
+                    </div>
+                    <Input 
+                      value={row.ipAddress} 
+                      onChange={(e) => updateRow(i, 'ipAddress', e.target.value)}
+                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-mono transition-all"
+                      placeholder="IP Address"
+                    />
+                    <Input 
+                      value={row.sshUser} 
+                      onChange={(e) => updateRow(i, 'sshUser', e.target.value)}
+                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
+                      placeholder="User"
+                    />
+                    <Input 
+                      type="number"
+                      value={row.inboxCount} 
+                      onChange={(e) => updateRow(i, 'inboxCount', Number(e.target.value))}
+                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
+                      placeholder="Count"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="px-8 py-3 bg-blue-50/30 border-t border-blue-100/50">
+                <p className="text-[10px] text-blue-500 font-medium flex items-center gap-2">
+                  <div className="h-1 w-1 rounded-full bg-blue-400" />
+                  Tip: You can individually override settings for each domain in this batch.
+                </p>
+              </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="p-8 flex flex-col gap-6 flex-1">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 font-semibold text-xs uppercase tracking-wider">Subdomain Prefixes</Label>
+            <div className="p-8 flex flex-col gap-8 flex-1">
+              <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6 flex items-start gap-4">
+                <div className="h-10 w-10 rounded-2xl bg-[#4DB584] text-white flex items-center justify-center shrink-0">
+                  <Wand2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Planning Configuration</h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Our AI planner will use these lists to generate unique, natural-looking inboxes. 
+                    You can provide custom prefixes and names to match your specific needs.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col">
+                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Subdomain Prefixes</Label>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Used for mail, tracking, and web subdomains</p>
+                  </div>
                   <Textarea
                     value={prefixesText}
                     onChange={(e) => setPrefixesText(e.target.value)}
-                    className="text-xs h-40 rounded-2xl border-gray-100 bg-gray-50 p-4 leading-relaxed"
+                    className="text-xs h-44 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
+                    placeholder="mail, web, app..."
                   />
                 </div>
-                <div className="flex flex-col gap-2">
-                  <Label className="text-gray-700 font-semibold text-xs uppercase tracking-wider">Person Names</Label>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col">
+                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Pool of Names</Label>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Assigned randomly to generated inboxes</p>
+                  </div>
                   <Textarea
                     value={namesText}
                     onChange={(e) => setNamesText(e.target.value)}
-                    className="text-xs h-40 rounded-2xl border-gray-100 bg-gray-50 p-4 leading-relaxed"
+                    className="text-xs h-44 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
+                    placeholder="John, Mary, Michael..."
                   />
                 </div>
               </div>
