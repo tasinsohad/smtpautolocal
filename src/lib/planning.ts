@@ -313,7 +313,6 @@ function naturalSplit(total: number, buckets: number): number[] {
       if (counts[idx] > MIN_PER_SUBDOMAIN) {
         counts[idx]--;
       }
-}
     }
     adjustCount++;
   }
