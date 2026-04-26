@@ -31,6 +31,14 @@ export const requireAuth = createMiddleware().server(async ({ next }: any) => {
     } else {
       userId = user.id;
     }
+
+    return next({
+      context: {
+        db,
+        userId,
+        user,
+      },
+    });
   } catch (error) {
     console.error("CRITICAL: Database connection error:", error);
     user = { id: "dev-user", email: DEFAULT_USER_EMAIL };
