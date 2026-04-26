@@ -181,9 +181,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   const minAllowed = Math.max(3, input.minSubdomains ?? 3);
   const maxAllowed = input.maxSubdomains ?? 15;
 
-  const subdomainCount = randInt(minAllowed, maxAllowed);
-  
-  if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
+  let subdomainCount = randInt(minAllowed, maxAllowed);
   
   if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
 
