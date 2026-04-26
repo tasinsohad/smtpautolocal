@@ -402,7 +402,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
 
       return { okCount };
     } catch (error) {
-      console.error("Wizard failed:", error);
-      return { okCount: 0, error: String(error) };
+      console.error("Wizard Execution Failed:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      return { okCount: 0, error: `Critical Failure: ${msg}` };
     }
   });
