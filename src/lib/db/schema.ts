@@ -40,8 +40,8 @@ export const jobTemplates = pgTable("job_templates", {
     .notNull()
     .references(() => users.id),
   name: text("name").notNull(),
-  subdomainPrefixes: text("subdomain_prefixes").array(),
-  personNames: text("person_names").array(),
+  subdomainPrefixes: text("subdomain_prefixes").notNull().default("[]"),
+  personNames: text("person_names").notNull().default("[]"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

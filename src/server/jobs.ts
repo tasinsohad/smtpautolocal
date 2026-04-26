@@ -116,11 +116,29 @@ export const listJobTemplates = createServerFn({ method: "GET" })
       const templates = await db.query.jobTemplates.findMany({
         where: eq(jobTemplates.userId, userId),
       });
-      return templates.map((t: any) => ({
-        ...t,
-        subdomainPrefixes: t.subdomainPrefixes ? JSON.parse(t.subdomainPrefixes) : [],
-        personNames: t.personNames ? JSON.parse(t.personNames) : [],
-      }));
+      return templates.map((t: any) => {
+        let prefixes: string[] = [];
+        let names: string[] = [];
+        
+        // Handle both text[] (array) and text (JSON string)
+        if (Array.isArray(t.subdomainPrefixes)) {
+          prefixes = t.subdomainPrefixes;
+        } else if (typeof t.subdomainPrefixes === 'string') {
+          try { prefixes = JSON.parse(t.subdomainPrefixes); } catch {}
+        }
+        
+        if (Array.isArray(t.personNames)) {
+          names = t.personNames;
+        } else if (typeof t.personNames === 'string') {
+          try { names = JSON.parse(t.personNames); } catch {}
+        }
+        
+        return {
+          ...t,
+          subdomainPrefixes: prefixes,
+          personNames: names,
+        };
+      });
     } catch {
       return [];
     }
