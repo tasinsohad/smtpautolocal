@@ -65,7 +65,8 @@ function BatchCard({ batch }: { batch: any }) {
 
   return (
     <Link
-      to="/domains"
+      to="/jobs/$id"
+      params={{ id: batch.id }}
       className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all"
     >
       <div className="flex items-center gap-3">

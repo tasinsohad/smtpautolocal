@@ -102,8 +102,10 @@ function DomainsPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {domains.map((d: any) => (
-            <div
+            <Link
               key={d.id}
+              to="/domains/$id"
+              params={{ id: d.id }}
               className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 ring-1 ring-black/5 shadow-sm hover:shadow-md transition-all group"
             >
               <div className="flex items-center gap-4">
@@ -123,27 +125,23 @@ function DomainsPage() {
                 >
                   {d.status}
                 </span>
-                <Link to="/domains/$id" params={{ id: d.id }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-xl text-gray-400 hover:text-gray-700 group-hover:text-[#4DB584]"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </Link>
+                <div className="rounded-xl p-2 text-gray-400 group-hover:text-[#4DB584]">
+                  <ChevronRight className="h-4 w-4" />
+                </div>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="rounded-xl text-red-300 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (confirm(`Delete ${d.name}?`)) deleteMutation.mutate(d.id);
                   }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

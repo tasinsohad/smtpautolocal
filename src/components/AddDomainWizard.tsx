@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "@tanstack/react-router";
 import { parseList } from "@/lib/planning";
 
 interface DomainRow {
@@ -33,6 +34,7 @@ interface AddDomainWizardProps {
 
 export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -69,6 +71,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         qc.invalidateQueries({ queryKey: ["domains"] });
         onOpenChange(false);
         resetForm();
+
+        // Redirect to the first domain in the list if it exists
+        qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains() }).then((domains: any) => {
+          if (domains && domains.length > 0) {
+            navigate({ to: "/domains/$id", params: { id: domains[0].id } });
+          }
+        });
       }
     },
     onError: (err) => {

@@ -415,3 +415,34 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
       return { okCount: 0, error: `Critical Failure: ${msg}` };
     }
   });
+export const getBatchDetails = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { db, userId } = context as any;
+    if (!db) return { batch: null, domains: [], inboxes: [] };
+
+    try {
+      const batch = await db.query.domainBatches.findFirst({
+        where: and(eq(domainBatches.id, data.id), eq(domainBatches.userId, userId)),
+      });
+      if (!batch) return { batch: null, domains: [], inboxes: [] };
+
+      const batchDomains = await db.select().from(domains).where(eq(domains.batchId, batch.id));
+      const domainIds = batchDomains.map((d: any) => d.id);
+
+      let records: any[] = [];
+      let inboxes: any[] = [];
+
+      if (domainIds.length > 0) {
+        records = await db.select().from(dnsRecords).where(inArray(dnsRecords.domainId, domainIds));
+        inboxes = await db.select().from(plannedInboxes).where(inArray(plannedInboxes.domainId, domainIds));
+      }
+
+      return { batch, domains: batchDomains, records, inboxes };
+    } catch (error) {
+      console.error("getBatchDetails failed:", error);
+      return { batch: null, domains: [], inboxes: [] };
+    }
+  });
