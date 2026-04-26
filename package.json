@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node scripts/vercel-entry.js",
+    "build": "vite build",
     "build:dev": "vite build --mode development",
     "start": "vite preview",
     "lint": "eslint .",
@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
-    "@tanstack/react-query": "^5.83.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -48,6 +47,7 @@
     "@rsbuild/core": "^2.0.1",
     "@supabase/supabase-js": "^2.52.0",
     "@tailwindcss/vite": "^4.2.1",
+    "@tanstack/react-query": "^5.83.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -57,6 +57,7 @@
     "h3-v2": "npm:h3@^2.0.1-rc.20",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
+    "nitro": "3.0.260415-beta",
     "pg": "^8.20.0",
     "postgres": "^3.4.5",
     "react": "^19.2.0",

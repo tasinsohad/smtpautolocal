@@ -4,18 +4,15 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
 
-// Check if Supabase is properly configured
-function hasSupabaseConfig(): boolean {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Check if Database is properly configured
+function hasDbConfig(): boolean {
+  const url = process.env.DATABASE_URL;
 
   // Check for presence and not placeholder values
   return !!(
     url &&
-    key &&
-    url.startsWith("https://") &&
-    !url.includes("your-project-url") &&
-    key !== "your-service-role-key"
+    (url.startsWith("postgres://") || url.startsWith("postgresql://")) &&
+    !url.includes("your-database-url")
   );
 }
 
@@ -25,30 +22,35 @@ let dbInstance: any = null;
 
 export function getDb(): any {
   // Check for valid configuration
-  if (!hasSupabaseConfig()) {
-    throw new Error(
-      "❌ Supabase not configured!\n" +
-        "Please create a .env file with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.\n" +
-        "See .env.example for instructions.",
-    );
+  if (!hasDbConfig()) {
+    // If DATABASE_URL is missing, we try to use SUPABASE_URL if it looks like a connection string
+    const fallbackUrl = process.env.SUPABASE_URL;
+    if (
+      !fallbackUrl ||
+      (!fallbackUrl.startsWith("postgres://") && !fallbackUrl.startsWith("postgresql://"))
+    ) {
+      throw new Error(
+        "❌ Database connection string not found!\n" +
+          "Please set DATABASE_URL in your environment variables.\n" +
+          "Format: postgresql://postgres.[project-id]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres",
+      );
+    }
   }
 
   // Reuse singleton connection (postgres pools connections automatically)
   if (!dbInstance) {
-    const supabaseUrl = process.env.SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_URL!;
 
     // Use SSL for production, disable for local development
-    const isLocal = supabaseUrl.includes("localhost");
+    const isLocal = dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1");
 
-    const sql = postgres(supabaseUrl, {
-      ssl: isLocal ? false : true,
-      pass: supabaseServiceKey,
+    const sql = postgres(dbUrl, {
+      ssl: isLocal ? false : "require",
       // Add connection timeout to prevent hanging
       connect_timeout: 10,
       // Connection timeout for queries
       idle_timeout: 20,
-      // Maximum connections in pool
+      // Maximum connections in pool (keep it low for serverless)
       max: 1,
     });
 
