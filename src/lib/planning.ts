@@ -184,6 +184,8 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   const subdomainCount = randInt(minAllowed, maxAllowed);
   
   if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
+  
+  if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
 
   const chosenPrefixes = sampleUnique(prefixes, subdomainCount);
 
@@ -274,8 +276,49 @@ function naturalSplit(total: number, buckets: number): number[] {
     return new Array(buckets)
       .fill(1)
       .map((_, i) => (i < total ? 1 : 0))
-      .slice(0, Math.min(buckets, total));
+      .slice(0, Math.min(buckets, total)));
   }
+
+  const MIN_PER_SUBDOMAIN = 2;
+  const MAX_PER_SUBDOMAIN = 8;
+  
+  const counts: number[] = [];
+  const target = Math.floor(total / buckets);
+  
+  for (let i = 0; i < buckets; i++) {
+    let count;
+    if (i === 0) {
+      count = randInt(Math.min(3, total), Math.min(MAX_PER_SUBDOMAIN, total));
+    } else {
+      count = randInt(MIN_PER_SUBDOMAIN, MAX_PER_SUBDOMAIN);
+    }
+    counts.push(count);
+  }
+  
+  const currentSum = counts.reduce((a, b) => a + b, 0);
+  const diff = total - currentSum;
+  
+  let adjustCount = 0;
+  while (counts.reduce((a, b) => a + b, 0) !== total && adjustCount < 50) {
+    const runningSum = counts.reduce((a, b) => a + b, 0);
+    const newDiff = total - runningSum;
+    
+    if (newDiff > 0) {
+      const idx = randInt(0, buckets - 1);
+      if (counts[idx] < MAX_PER_SUBDOMAIN) {
+        counts[idx]++;
+      }
+    } else if (newDiff < 0) {
+      const idx = randInt(0, buckets - 1);
+      if (counts[idx] > MIN_PER_SUBDOMAIN) {
+        counts[idx]--;
+      }
+    }
+    adjustCount++;
+  }
+
+  return counts;
+}
 
   const MIN_PER_SUBDOMAIN = 2;
   const MAX_PER_SUBDOMAIN = 8;
