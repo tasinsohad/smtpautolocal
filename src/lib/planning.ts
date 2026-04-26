@@ -178,14 +178,10 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   if (prefixes.length === 0) throw new Error("No subdomain prefixes provided");
   if (names.length === 0) throw new Error("No names provided");
 
-  const minAllowed = Math.max(4, input.minSubdomains ?? 4);
-  const maxAllowed = input.maxSubdomains ?? (totalInboxes > 50 ? 15 : 10);
+  const minAllowed = Math.max(3, input.minSubdomains ?? 3);
+  const maxAllowed = input.maxSubdomains ?? 15;
 
-  const targetPerSub = input.targetPerSubdomain ?? randInt(4, 10);
-  const idealCount = Math.ceil(totalInboxes / targetPerSub);
-  
-  const jitter = randInt(-2, 2);
-  let subdomainCount = Math.max(minAllowed, Math.min(maxAllowed, idealCount + jitter));
+  const subdomainCount = randInt(minAllowed, maxAllowed);
   
   if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
 
