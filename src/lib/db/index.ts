@@ -39,7 +39,13 @@ export function getDb(): any {
 
   // Reuse singleton connection (postgres pools connections automatically)
   if (!dbInstance) {
-    const dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_URL!;
+    let dbUrl = process.env.DATABASE_URL || process.env.SUPABASE_URL!;
+
+    // Fix: If the password contains '#' it must be encoded as '%23' for the URL to be valid
+    // This is a common issue with Supabase pooler passwords.
+    if (dbUrl.includes("#") && !dbUrl.includes("%23")) {
+      dbUrl = dbUrl.replace(/#/, "%23");
+    }
 
     // Use SSL for production, disable for local development
     const isLocal = dbUrl.includes("localhost") || dbUrl.includes("127.0.0.1");
