@@ -18,6 +18,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  ssr: {
+    external: ["node-ssh", "cloudflare", "ssh2"],
+  },
   server: {
     hmr: {
       overlay: false,
