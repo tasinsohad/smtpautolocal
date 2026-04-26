@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { getSecrets, saveSecrets } from "@/server/secrets";
+import { getSecrets, saveSecrets, verifyCfToken, syncCfZones } from "@/server/secrets";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_app/settings")({
 function SettingsPage() {
   const qc = useQueryClient();
   const [form, setForm] = useState({ cfApiToken: "", cfAccountId: "" });
+  const [verifyStatus, setVerifyStatus] = useState<{ valid: boolean; error?: string } | null>(null);
 
   const { data: secrets, isLoading } = useQuery({
     queryKey: ["secrets"],
@@ -37,6 +38,23 @@ function SettingsPage() {
       toast.success("Settings saved successfully");
     },
     onError: () => toast.error("Failed to save settings"),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: (token: string) => verifyCfToken({ data: { token } }),
+    onSuccess: (res) => {
+      setVerifyStatus(res);
+      if (res.valid) toast.success("Token is valid");
+      else toast.error(res.error || "Invalid token");
+    },
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: () => syncCfZones(),
+    onSuccess: (res) => {
+      if (res.error) toast.error(res.error);
+      else toast.success(`Synced ${res.count} zones`);
+    },
   });
 
   return (
@@ -81,9 +99,34 @@ function SettingsPage() {
                   onChange={(e) => setForm((f) => ({ ...f, cfApiToken: e.target.value }))}
                   className="rounded-xl font-mono"
                 />
-                <p className="text-xs text-gray-500 ml-1">
-                  Must have Zone:Read and DNS:Edit permissions.
-                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    placeholder="Cloudflare API Token with DNS Edit permissions"
+                    value={form.cfApiToken}
+                    onChange={(e) => setForm((f) => ({ ...f, cfApiToken: e.target.value }))}
+                    className="rounded-xl font-mono flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => verifyMutation.mutate(form.cfApiToken)}
+                    disabled={verifyMutation.isPending || !form.cfApiToken}
+                    className="rounded-xl border-gray-100"
+                  >
+                    {verifyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  {verifyStatus && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${verifyStatus.valid ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>
+                      {verifyStatus.valid ? "✅ VALID" : `❌ INVALID: ${verifyStatus.error}`}
+                    </span>
+                  )}
+                  <p className="text-xs text-gray-500">
+                    Must have Zone:Read and DNS:Edit permissions.
+                  </p>
+                </div>
               </div>
 
               <div className="grid gap-2">
@@ -98,7 +141,7 @@ function SettingsPage() {
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex gap-3">
                 <Button
                   type="submit"
                   disabled={saveMutation.isPending}
@@ -109,6 +152,17 @@ function SettingsPage() {
                   ) : (
                     "Save Changes"
                   )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => syncMutation.mutate()}
+                  disabled={syncMutation.isPending || !secrets?.cfApiToken}
+                  className="rounded-xl border-gray-100 gap-2"
+                >
+                  {syncMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
+                  Sync Zones
                 </Button>
               </div>
             </form>

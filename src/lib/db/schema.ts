@@ -28,6 +28,7 @@ export const servers = pgTable("servers", {
   hostname: text("hostname").notNull(),
   ipAddress: text("ip_address").notNull(),
   sshUser: text("ssh_user").notNull().default("root"),
+  sshPassword: text("ssh_password"),
   status: text("status").notNull().default("configuring"),
   setupSteps: text("setup_steps"), // JSON stored as text
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -128,10 +129,22 @@ export const plannedInboxes = pgTable("planned_inboxes", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const cloudflareZones = pgTable("cloudflare_zones", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id),
+  zoneId: text("zone_id").notNull(),
+  name: text("name").notNull(),
+  status: text("status"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Relations
 export const userRelations = relations(users, ({ many }) => ({
   domains: many(domains),
   secrets: many(userSecrets),
+  zones: many(cloudflareZones),
 }));
 
 export const domainRelations = relations(domains, ({ one, many }) => ({

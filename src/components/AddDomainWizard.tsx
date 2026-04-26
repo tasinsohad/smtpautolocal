@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDomainsWizardAction, listDomainBatches } from "@/server/domains";
+import { addDomainsWizardAction, listDomainBatches, validateDomainsAgainstZones } from "@/server/domains";
 import { listServers } from "@/server/servers";
 import {
   Dialog,
@@ -18,6 +18,14 @@ import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { parseList } from "@/lib/planning";
 
+interface DomainRow {
+  domain: string;
+  ipAddress: string;
+  sshUser: string;
+  sshPassword?: string;
+  inboxCount: number;
+}
+
 interface AddDomainWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -33,7 +41,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const [domainList, setDomainList] = useState("");
   
   // Per-domain rows (populated in step 2)
-  const [domainRows, setDomainRows] = useState<any[]>([]);
+  const [domainRows, setDomainRows] = useState<DomainRow[]>([]);
+  const [validationResults, setValidationResults] = useState<{ name: string; valid: boolean; zoneId: string | null }[]>([]);
+
+  const validateMutation = useMutation({
+    mutationFn: (domains: string[]) => validateDomainsAgainstZones({ data: { domains } }),
+    onSuccess: (res) => setValidationResults(res),
+  });
 
   // Global settings
   const [prefixesText, setPrefixesText] = useState("mail,web,app,dev,api,shop,blog,news,info,support,cloud,portal");
@@ -82,6 +96,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         domain: d,
         ipAddress: servers[0]?.ipAddress || "1.2.3.4",
         sshUser: servers[0]?.sshUser || "root",
+        sshPassword: "",
         inboxCount: 50
       })));
       setStep(2);
@@ -158,28 +173,56 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     {parseList(domainList).length} detected
                   </span>
                 </div>
-                <Textarea
-                  placeholder="example.com\nanother.net\nthird.io"
-                  value={domainList}
-                  onChange={(e) => setDomainList(e.target.value)}
-                  className="min-h-[220px] rounded-[1.5rem] border-gray-100 bg-gray-50/50 focus:bg-white p-5 transition-all resize-none shadow-inner leading-relaxed"
-                  required
-                />
+                <div className="relative group/textarea">
+                  <Textarea
+                    placeholder="example.com\nanother.net\nthird.io"
+                    value={domainList}
+                    onChange={(e) => setDomainList(e.target.value)}
+                    onBlur={() => {
+                      const domains = parseList(domainList);
+                      if (domains.length > 0) validateMutation.mutate(domains);
+                    }}
+                    className="min-h-[220px] rounded-[1.5rem] border-gray-100 bg-gray-50/50 focus:bg-white p-5 transition-all resize-none shadow-inner leading-relaxed pr-12"
+                    required
+                  />
+                  <div className="absolute right-4 top-4">
+                    {validateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+                  </div>
+                </div>
+
+                {validationResults.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-4 bg-gray-50/50 rounded-[1.5rem] border border-gray-100/50">
+                    {validationResults.map((v, i) => (
+                      <div 
+                        key={i} 
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                          v.valid 
+                            ? "bg-green-50 text-green-600 border-green-100" 
+                            : "bg-red-50 text-red-600 border-red-100"
+                        }`}
+                      >
+                        {v.valid ? <div className="h-1.5 w-1.5 rounded-full bg-green-500" /> : <div className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+                        {v.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {step === 2 && (
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="px-8 py-4 bg-gray-50/50 border-b border-gray-100 grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">
+              <div className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,1fr] gap-4 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">
                 <div>Domain Name</div>
                 <div>IP Address</div>
                 <div>SSH User</div>
+                <div>SSH Password</div>
                 <div>Inboxes</div>
               </div>
               <div className="p-4 px-8 flex flex-col gap-3 flex-1 overflow-auto max-h-[450px] scrollbar-thin scrollbar-thumb-gray-200">
                 {domainRows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
+                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,1fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
                     <div className="font-semibold text-gray-700 truncate text-sm px-1" title={row.domain}>
                       {row.domain}
                     </div>
@@ -194,6 +237,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                       onChange={(e) => updateRow(i, 'sshUser', e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
                       placeholder="User"
+                    />
+                    <Input 
+                      type="password"
+                      value={row.sshPassword || ""} 
+                      onChange={(e) => updateRow(i, 'sshPassword', e.target.value)}
+                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
+                      placeholder="Password"
                     />
                     <Input 
                       type="number"

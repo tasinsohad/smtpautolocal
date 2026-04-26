@@ -1,9 +1,35 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
-import { domains, dnsRecords, domainBatches, domainPlans, plannedInboxes } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { domains, dnsRecords, domainBatches, domainPlans, plannedInboxes, cloudflareZones } from "@/lib/db/schema";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { planDomain } from "@/lib/planning";
+
+export const validateDomainsAgainstZones = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ domains: z.array(z.string()) }).parse(d))
+  .handler(async ({ data, context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { db, userId } = context as any;
+    if (!db) return [];
+
+    try {
+      const zones = await db
+        .select()
+        .from(cloudflareZones)
+        .where(eq(cloudflareZones.userId, userId));
+      
+      const zoneMap = new Map(zones.map((z: any) => [z.name.toLowerCase(), z.zoneId]));
+
+      return data.domains.map((d) => ({
+        name: d,
+        valid: zoneMap.has(d.toLowerCase()),
+        zoneId: zoneMap.get(d.toLowerCase()) || null,
+      }));
+    } catch {
+      return [];
+    }
+  });
 
 export const listDomains = createServerFn({ method: "GET" })
   .middleware([requireAuth])
@@ -146,6 +172,64 @@ export const getDomainDetails = createServerFn({ method: "GET" })
     }
   });
 
+export const pushDnsToCloudflare = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { db, userId } = context as any;
+    if (!db) return { error: "Database not connected" };
+
+    const domain = await db.query.domains.findFirst({
+      where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
+    });
+    if (!domain || !domain.cfZoneId) return { error: "Domain or Zone ID missing" };
+
+    const secrets = await db.query.userSecrets.findFirst({
+      where: eq(userSecrets.userId, userId),
+    });
+    if (!secrets?.cfApiToken) return { error: "Cloudflare token missing" };
+
+    const records = await db.select().from(dnsRecords).where(eq(dnsRecords.domainId, domain.id));
+
+    const results = [];
+    for (const record of records) {
+      if (record.status === "active") continue;
+      try {
+        const name = record.name === "@" ? domain.name : `${record.name}.${domain.name}`;
+        const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${domain.cfZoneId}/dns_records`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${secrets.cfApiToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: record.type,
+            name,
+            content: record.content,
+            ttl: record.ttl || 1,
+            priority: record.priority,
+            proxied: record.proxied || false,
+          }),
+        });
+        const json = (await res.json()) as any;
+        if (json.success) {
+          await db
+            .update(dnsRecords)
+            .set({ cfRecordId: json.result.id, status: "active" })
+            .where(eq(dnsRecords.id, record.id));
+          results.push({ name: record.name, success: true });
+        } else {
+          results.push({ name: record.name, success: false, error: json.errors?.[0]?.message });
+        }
+      } catch (err) {
+        results.push({ name: record.name, success: false, error: String(err) });
+      }
+    }
+
+    return { results };
+  });
+
 export const addDomainsWizardAction = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) =>
@@ -172,6 +256,16 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
     if (!db) return { okCount: 0, error: dbError || "Database not connected" };
 
     try {
+      const secrets = await db.query.userSecrets.findFirst({
+        where: eq(userSecrets.userId, userId),
+      });
+
+      const zones = await db
+        .select()
+        .from(cloudflareZones)
+        .where(eq(cloudflareZones.userId, userId));
+      const zoneMap = new Map(zones.map((z: any) => [z.name.toLowerCase(), z.zoneId]));
+
       let batchId: string | null = null;
       if (data.batchName) {
         const [batch] = await db
@@ -187,6 +281,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
 
       let okCount = 0;
       for (const row of data.rows) {
+        const cfZoneId = zoneMap.get(row.domain.toLowerCase()) || null;
+
         const [domain] = await db
           .insert(domains)
           .values({
@@ -195,6 +291,7 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
             name: row.domain,
             status: "pending",
             plannedInboxCount: row.inboxCount,
+            cfZoneId,
           })
           .returning();
 
@@ -234,55 +331,78 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
           await db.insert(plannedInboxes).values(inboxRows);
         }
 
-        await db.insert(dnsRecords).values([
-          {
-            userId,
-            domainId: domain.id,
-            type: "A",
-            name: "@",
-            content: row.ipAddress,
-            status: "pending",
-          },
-          {
-            userId,
-            domainId: domain.id,
-            type: "A",
-            name: "mail",
-            content: row.ipAddress,
-            status: "pending",
-          },
-          {
-            userId,
-            domainId: domain.id,
-            type: "MX",
-            name: "@",
-            content: `mail.${row.domain}`,
-            priority: 10,
-            status: "pending",
-          },
+        // --- PHASE 4: DNS AUTOMATION ---
+        const records = [
+          // Root records
+          { userId, domainId: domain.id, type: "A", name: "mail", content: row.ipAddress },
+          { userId, domainId: domain.id, type: "TXT", name: "_dmarc", content: "v=DMARC1; p=none" },
           {
             userId,
             domainId: domain.id,
             type: "TXT",
-            name: "@",
-            content: `v=spf1 ip4:${row.ipAddress} -all`,
-            status: "pending",
+            name: "dkim._domainkey",
+            content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACEHOLDER",
           },
-          {
-            userId,
-            domainId: domain.id,
-            type: "TXT",
-            name: "_dmarc",
-            content: "v=DMARC1; p=none",
-            status: "pending",
-          },
-        ]);
+        ];
 
+        // Per-subdomain records
+        const uniqueSubdomains = Array.from(new Set(plan.inboxes.map((ib) => ib.subdomainPrefix)));
+        for (const sub of uniqueSubdomains) {
+          records.push(
+            { userId, domainId: domain.id, type: "A", name: sub, content: row.ipAddress },
+            {
+              userId,
+              domainId: domain.id,
+              type: "MX",
+              name: sub,
+              content: `mail.${row.domain}`,
+              priority: 10,
+            },
+            {
+              userId,
+              domainId: domain.id,
+              type: "TXT",
+              name: sub,
+              content: `v=spf1 ip4:${row.ipAddress} -all`,
+            },
+            {
+              userId,
+              domainId: domain.id,
+              type: "TXT",
+              name: `_dmarc.${sub}`,
+              content: "v=DMARC1; p=none",
+            },
+            {
+              userId,
+              domainId: domain.id,
+              type: "CNAME",
+              name: `autodiscover.${sub}`,
+              content: `mail.${row.domain}`,
+            },
+            {
+              userId,
+              domainId: domain.id,
+              type: "CNAME",
+              name: `autoconfig.${sub}`,
+              content: `mail.${row.domain}`,
+            },
+            {
+              userId,
+              domainId: domain.id,
+              type: "TXT",
+              name: `dkim._domainkey.${sub}`,
+              content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACEHOLDER",
+            },
+          );
+        }
+
+        await db.insert(dnsRecords).values(records);
         okCount++;
       }
 
       return { okCount };
     } catch (error) {
+      console.error("Wizard failed:", error);
       return { okCount: 0, error: String(error) };
     }
   });
