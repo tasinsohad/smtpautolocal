@@ -4,10 +4,10 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "vinxi dev",
-    "build": "vinxi build",
-    "build:dev": "vinxi build --preset development",
-    "start": "vinxi start",
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
+    "start": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
@@ -47,10 +47,6 @@
     "@rsbuild/core": "^2.0.1",
     "@supabase/supabase-js": "^2.52.0",
     "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/react-query": "^5.83.0",
-    "@tanstack/react-router": "^1.168.0",
-    "@tanstack/react-start": "^1.167.14",
-    "@tanstack/router-plugin": "^1.167.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -79,12 +75,15 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@supabase/ssr": "^0.5.2",
     "@eslint/js": "^9.32.0",
+    "@supabase/ssr": "^0.5.2",
+    "@tanstack/react-router": "^1.168.24",
+    "@tanstack/react-start": "^1.167.49",
+    "@tanstack/router-plugin": "1.167.27",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-react": "5.2.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
@@ -95,6 +94,7 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
+    "vinxi": "^0.5.11",
     "vite": "^7.3.1"
   }
 }

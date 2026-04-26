@@ -24,13 +24,18 @@ function JobsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Jobs</h1>
           <p className="text-sm text-gray-500 mt-1">Domain batches and provisioning runs</p>
         </div>
-        <Button onClick={() => setWizardOpen(true)} className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2">
+        <Button
+          onClick={() => setWizardOpen(true)}
+          className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl gap-2"
+        >
           <Plus className="h-4 w-4" /> Add Domains
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
       ) : batches.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-3xl bg-white p-16 text-center ring-1 ring-black/5">
           <FolderGit2 className="h-12 w-12 text-gray-300" />
@@ -55,19 +60,26 @@ function BatchCard({ batch }: { batch: any }) {
   });
 
   return (
-    <Link to="/domains" className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all">
+    <Link
+      to="/domains"
+      className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all"
+    >
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
           <FolderGit2 className="h-5 w-5 text-[#4DB584]" />
         </div>
         <div>
           <div className="font-semibold text-gray-900">{batch.name}</div>
-          <div className="text-xs text-gray-500">{new Date(batch.createdAt).toLocaleDateString()}</div>
+          <div className="text-xs text-gray-500">
+            {new Date(batch.createdAt).toLocaleDateString()}
+          </div>
         </div>
       </div>
       <div className="flex items-center gap-2 text-sm text-gray-600">
         <Globe className="h-4 w-4" />
-        <span>{domains.length} domain{domains.length !== 1 ? "s" : ""}</span>
+        <span>
+          {domains.length} domain{domains.length !== 1 ? "s" : ""}
+        </span>
       </div>
     </Link>
   );

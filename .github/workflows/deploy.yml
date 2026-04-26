@@ -16,7 +16,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Deploy to Vercel
-    
+
     steps:
       # Checkout code
       - name: Checkout code
@@ -26,8 +26,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: 'pnpm'
+          node-version: "22"
+          cache: "pnpm"
 
       # Install dependencies
       - name: Install dependencies
@@ -48,4 +48,4 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
+          vercel-args: "--prod"

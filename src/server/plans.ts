@@ -10,7 +10,7 @@ export const getDomainPlan = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
+    const { db, userId } = context as any;
     return await db.query.domainPlans.findFirst({
       where: and(eq(domainPlans.domainId, data.domainId), eq(domainPlans.userId, userId)),
     });
@@ -21,24 +21,30 @@ export const listPlannedInboxes = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
-    return await db.select().from(plannedInboxes)
+    const { db, userId } = context as any;
+    return await db
+      .select()
+      .from(plannedInboxes)
       .where(and(eq(plannedInboxes.domainId, data.domainId), eq(plannedInboxes.userId, userId)))
       .orderBy(plannedInboxes.subdomainFqdn, plannedInboxes.localPart);
   });
 
 export const regeneratePlan = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) => z.object({
-    domainId: z.string(),
-    totalInboxes: z.number(),
-    prefixes: z.array(z.string()),
-    names: z.array(z.string()),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        domainId: z.string(),
+        totalInboxes: z.number(),
+        prefixes: z.array(z.string()),
+        names: z.array(z.string()),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
-    
+    const { db, userId } = context as any;
+
     const domain = await db.query.domains.findFirst({
       where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
     });
@@ -58,28 +64,37 @@ const { db, userId } = context as any;
 
     let planId: string;
     if (existingPlan) {
-      await db.update(domainPlans).set({
-        totalInboxes: built.totalInboxes,
-        subdomainCount: built.subdomainCount,
-        status: "planned",
-        prefixesSnapshot: JSON.stringify(data.prefixes),
-        namesSnapshot: JSON.stringify(data.names),
-      }).where(eq(domainPlans.id, existingPlan.id));
+      await db
+        .update(domainPlans)
+        .set({
+          totalInboxes: built.totalInboxes,
+          subdomainCount: built.subdomainCount,
+          status: "planned",
+          prefixesSnapshot: JSON.stringify(data.prefixes),
+          namesSnapshot: JSON.stringify(data.names),
+        })
+        .where(eq(domainPlans.id, existingPlan.id));
       planId = existingPlan.id;
     } else {
-      const [p] = await db.insert(domainPlans).values({
-        userId,
-        domainId: data.domainId,
-        totalInboxes: built.totalInboxes,
-        subdomainCount: built.subdomainCount,
-        status: "planned",
-        prefixesSnapshot: JSON.stringify(data.prefixes),
-        namesSnapshot: JSON.stringify(data.names),
-      }).returning();
+      const [p] = await db
+        .insert(domainPlans)
+        .values({
+          userId,
+          domainId: data.domainId,
+          totalInboxes: built.totalInboxes,
+          subdomainCount: built.subdomainCount,
+          status: "planned",
+          prefixesSnapshot: JSON.stringify(data.prefixes),
+          namesSnapshot: JSON.stringify(data.names),
+        })
+        .returning();
       planId = p.id;
     }
 
-    await db.update(domains).set({ plannedInboxCount: built.totalInboxes }).where(eq(domains.id, data.domainId));
+    await db
+      .update(domains)
+      .set({ plannedInboxCount: built.totalInboxes })
+      .where(eq(domains.id, data.domainId));
 
     const rows = built.inboxes.map((ib) => ({
       userId,

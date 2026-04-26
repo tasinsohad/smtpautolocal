@@ -9,8 +9,10 @@ export const listDnsRecords = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
-    return await db.select().from(dnsRecords)
+    const { db, userId } = context as any;
+    return await db
+      .select()
+      .from(dnsRecords)
       .where(and(eq(dnsRecords.domainId, data.domainId), eq(dnsRecords.userId, userId)))
       .orderBy(dnsRecords.type);
   });
@@ -29,11 +31,14 @@ export const createDnsRecord = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => createDnsRecordSchema.parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
-    const [res] = await db.insert(dnsRecords).values({
-      userId,
-      ...data,
-      status: "pending",
-    }).returning();
+    const { db, userId } = context as any;
+    const [res] = await db
+      .insert(dnsRecords)
+      .values({
+        userId,
+        ...data,
+        status: "pending",
+      })
+      .returning();
     return res;
   });

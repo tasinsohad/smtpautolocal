@@ -3,16 +3,22 @@ import react from "@vitejs/plugin-react";
 import tsConfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 export default defineConfig({
   plugins: [
     tsConfigPaths(),
-    tanstackRouter(),
+    // Note: tanstackRouter plugin completely removed due to Windows + Vite HMR conflicts
+    // causing EPERM and "hot" duplicate declaration errors.
+    // Route tree is manually maintained in src/routeTree.gen.ts
     tanstackStart(),
     react(),
     tailwindcss(),
   ],
+  server: {
+    hmr: {
+      overlay: false,
+    },
+  },
   build: {
     target: "esnext",
     minify: "esbuild",

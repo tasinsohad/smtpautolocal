@@ -31,7 +31,10 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Mailcow Provisioner" },
-      { name: "description", content: "Provision Mailcow mail servers across multiple domains and VPS hosts." },
+      {
+        name: "description",
+        content: "Provision Mailcow mail servers across multiple domains and VPS hosts.",
+      },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),

@@ -13,12 +13,19 @@
 
 export type LocalFormat = "first" | "first.last" | "firstlast" | "f.last" | "first_last" | "firstl";
 
-const FORMATS: LocalFormat[] = ["first", "first.last", "firstlast", "f.last", "first_last", "firstl"];
+const FORMATS: LocalFormat[] = [
+  "first",
+  "first.last",
+  "firstlast",
+  "f.last",
+  "first_last",
+  "firstl",
+];
 
 export interface PlanInput {
   totalInboxes: number;
-  prefixes: string[];   // available subdomain prefixes
-  names: string[];      // people names
+  prefixes: string[]; // available subdomain prefixes
+  names: string[]; // people names
   minSubdomains?: number;
   maxSubdomains?: number;
   /** Target inboxes per subdomain. Default: random 8–15. */
@@ -72,12 +79,18 @@ function buildLocalPart(name: string, fmt: LocalFormat): string {
     return first;
   }
   switch (fmt) {
-    case "first":      return first;
-    case "first.last": return `${first}.${last}`;
-    case "firstlast":  return `${first}${last}`;
-    case "f.last":     return `${first[0]}.${last}`;
-    case "first_last": return `${first}_${last}`;
-    case "firstl":     return `${first}${last[0]}`;
+    case "first":
+      return first;
+    case "first.last":
+      return `${first}.${last}`;
+    case "firstlast":
+      return `${first}${last}`;
+    case "f.last":
+      return `${first[0]}.${last}`;
+    case "first_last":
+      return `${first}_${last}`;
+    case "firstl":
+      return `${first}${last[0]}`;
   }
 }
 
@@ -88,21 +101,32 @@ function buildLocalPart(name: string, fmt: LocalFormat): string {
  */
 export function randomSplit(total: number, buckets: number): number[] {
   if (buckets <= 0) return [];
-  if (buckets >= total) return new Array(buckets).fill(1).map((_, i) => (i < total ? 1 : 0)).slice(0, Math.min(buckets, total));
+  if (buckets >= total)
+    return new Array(buckets)
+      .fill(1)
+      .map((_, i) => (i < total ? 1 : 0))
+      .slice(0, Math.min(buckets, total));
 
   // Generate random break points on [0, total]
-  const breaks = Array.from({ length: buckets - 1 }, () => Math.random() * total).sort((a, b) => a - b);
+  const breaks = Array.from({ length: buckets - 1 }, () => Math.random() * total).sort(
+    (a, b) => a - b,
+  );
   const points = [0, ...breaks, total];
   const raw = points.slice(1).map((p, i) => p - points[i]);
 
   // Round to integers, ensuring each bucket gets at least 1
-  const counts = raw.map(v => Math.max(1, Math.round(v)));
+  const counts = raw.map((v) => Math.max(1, Math.round(v)));
   // Adjust sum to exactly equal total
   let diff = counts.reduce((a, b) => a + b, 0) - total;
   while (diff !== 0) {
     const idx = randInt(0, buckets - 1);
-    if (diff > 0 && counts[idx] > 1) { counts[idx]--; diff--; }
-    else if (diff < 0) { counts[idx]++; diff++; }
+    if (diff > 0 && counts[idx] > 1) {
+      counts[idx]--;
+      diff--;
+    } else if (diff < 0) {
+      counts[idx]++;
+      diff++;
+    }
   }
   return counts;
 }
@@ -150,7 +174,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
 
     for (let n = 0; n < counts[i]; n++) {
       // Pick name with true random rotation
-      let personName = shuffledNames[nameIdx % shuffledNames.length];
+      const personName = shuffledNames[nameIdx % shuffledNames.length];
       nameIdx++;
       if (nameIdx % shuffledNames.length === 0) {
         // Re-shuffle when cycling
@@ -174,7 +198,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
         }
       }
 
-      let base = buildLocalPart(personName, fmt);
+      const base = buildLocalPart(personName, fmt);
 
       // Resolve collisions with format diversity before numeric suffixes
       let candidate = base;
@@ -190,7 +214,10 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
           suffix++;
         }
         // Hard cap to prevent infinite loop
-        if (suffix > 99) { candidate = `${base}${randInt(100, 999)}`; break; }
+        if (suffix > 99) {
+          candidate = `${base}${randInt(100, 999)}`;
+          break;
+        }
       }
 
       subSeen.add(candidate);
@@ -217,31 +244,40 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
  */
 function naturalSplit(total: number, buckets: number): number[] {
   if (buckets <= 0) return [];
-  if (buckets >= total) return new Array(buckets).fill(1).map((_, i) => (i < total ? 1 : 0)).slice(0, Math.min(buckets, total));
+  if (buckets >= total)
+    return new Array(buckets)
+      .fill(1)
+      .map((_, i) => (i < total ? 1 : 0))
+      .slice(0, Math.min(buckets, total));
 
   // Generate weights using exponential decay pattern
   const weights: number[] = [];
   let totalWeight = 0;
   for (let i = 0; i < buckets; i++) {
     const decay = Math.exp(-0.3 * i); // exponential decay
-    const noise = 0.5 + Math.random();  // random noise factor [0.5, 1.5]
+    const noise = 0.5 + Math.random(); // random noise factor [0.5, 1.5]
     const w = decay * noise;
     weights.push(w);
     totalWeight += w;
   }
 
   // Convert to counts proportionally
-  const raw = weights.map(w => (w / totalWeight) * total);
+  const raw = weights.map((w) => (w / totalWeight) * total);
 
   // Round to integers, ensuring each bucket gets at least 1
-  const counts = raw.map(v => Math.max(1, Math.round(v)));
+  const counts = raw.map((v) => Math.max(1, Math.round(v)));
 
   // Adjust sum to exactly equal total
   let diff = counts.reduce((a, b) => a + b, 0) - total;
   while (diff !== 0) {
     const idx = randInt(0, buckets - 1);
-    if (diff > 0 && counts[idx] > 1) { counts[idx]--; diff--; }
-    else if (diff < 0) { counts[idx]++; diff++; }
+    if (diff > 0 && counts[idx] > 1) {
+      counts[idx]--;
+      diff--;
+    } else if (diff < 0) {
+      counts[idx]++;
+      diff++;
+    }
   }
 
   return counts;

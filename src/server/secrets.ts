@@ -8,7 +8,7 @@ export const getSecrets = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
+    const { db, userId } = context as any;
     const row = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -17,13 +17,17 @@ const { db, userId } = context as any;
 
 export const saveSecrets = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) => z.object({
-    cfApiToken: z.string().optional().nullable(),
-    cfAccountId: z.string().optional().nullable(),
-  }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        cfApiToken: z.string().optional().nullable(),
+        cfAccountId: z.string().optional().nullable(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
+    const { db, userId } = context as any;
     const existing = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -39,7 +43,7 @@ export const getCfZones = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { db, userId } = context as any;
+    const { db, userId } = context as any;
     const secrets = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -52,7 +56,7 @@ const { db, userId } = context as any;
           "Content-Type": "application/json",
         },
       });
-      const json = await res.json() as any;
+      const json = (await res.json()) as any;
       if (!json.success) return [];
       return (json.result ?? []).map((z: any) => ({ id: z.id, name: z.name, status: z.status }));
     } catch {

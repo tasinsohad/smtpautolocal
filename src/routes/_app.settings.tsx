@@ -32,7 +32,10 @@ function SettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (data: typeof form) => saveSecrets({ data }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["secrets"] }); toast.success("Settings saved successfully"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["secrets"] });
+      toast.success("Settings saved successfully");
+    },
     onError: () => toast.error("Failed to save settings"),
   });
 
@@ -44,7 +47,9 @@ function SettingsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
       ) : (
         <div className="flex flex-col gap-6">
           <div className="rounded-3xl bg-white p-8 shadow-sm ring-1 ring-black/5 flex flex-col gap-6">
@@ -58,36 +63,52 @@ function SettingsPage() {
               </div>
             </div>
 
-            <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form); }}>
+            <form
+              className="flex flex-col gap-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveMutation.mutate(form);
+              }}
+            >
               <div className="grid gap-2">
                 <Label className="flex items-center gap-2">
                   <KeyRound className="h-4 w-4 text-gray-400" /> API Token
                 </Label>
-                <Input 
-                  type="password" 
-                  placeholder="Cloudflare API Token with DNS Edit permissions" 
-                  value={form.cfApiToken} 
-                  onChange={e => setForm(f => ({ ...f, cfApiToken: e.target.value }))} 
-                  className="rounded-xl font-mono" 
+                <Input
+                  type="password"
+                  placeholder="Cloudflare API Token with DNS Edit permissions"
+                  value={form.cfApiToken}
+                  onChange={(e) => setForm((f) => ({ ...f, cfApiToken: e.target.value }))}
+                  className="rounded-xl font-mono"
                 />
-                <p className="text-xs text-gray-500 ml-1">Must have Zone:Read and DNS:Edit permissions.</p>
+                <p className="text-xs text-gray-500 ml-1">
+                  Must have Zone:Read and DNS:Edit permissions.
+                </p>
               </div>
 
               <div className="grid gap-2">
                 <Label className="flex items-center gap-2">
                   <KeyRound className="h-4 w-4 text-gray-400" /> Account ID
                 </Label>
-                <Input 
-                  placeholder="Cloudflare Account ID (optional)" 
-                  value={form.cfAccountId} 
-                  onChange={e => setForm(f => ({ ...f, cfAccountId: e.target.value }))} 
-                  className="rounded-xl font-mono" 
+                <Input
+                  placeholder="Cloudflare Account ID (optional)"
+                  value={form.cfAccountId}
+                  onChange={(e) => setForm((f) => ({ ...f, cfAccountId: e.target.value }))}
+                  className="rounded-xl font-mono"
                 />
               </div>
 
               <div className="pt-2">
-                <Button type="submit" disabled={saveMutation.isPending} className="bg-[#4DB584] hover:bg-[#3da070] rounded-xl w-32">
-                  {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+                <Button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="bg-[#4DB584] hover:bg-[#3da070] rounded-xl w-32"
+                >
+                  {saveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
               </div>
             </form>

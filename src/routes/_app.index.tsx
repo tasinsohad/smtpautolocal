@@ -7,7 +7,17 @@ export const Route = createFileRoute("/_app/")({
   component: IndexPage,
 });
 
-function StatCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: any; color: string }) {
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: number;
+  icon: any;
+  color: string;
+}) {
   return (
     <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -37,15 +47,38 @@ function IndexPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="rounded-3xl bg-white p-6 h-32 animate-pulse ring-1 ring-black/5" />
+            <div
+              key={i}
+              className="rounded-3xl bg-white p-6 h-32 animate-pulse ring-1 ring-black/5"
+            />
           ))}
         </div>
       ) : (
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-          <StatCard label="Total Domains" value={stats?.totalDomains ?? 0} icon={Globe} color="bg-blue-500" />
-          <StatCard label="Total Inboxes" value={stats?.totalInboxes ?? 0} icon={Mail} color="bg-[#4DB584]" />
-          <StatCard label="Servers" value={stats?.totalServers ?? 0} icon={Server} color="bg-purple-500" />
-          <StatCard label="Active Jobs" value={stats?.activeJobs ?? 0} icon={Briefcase} color="bg-orange-500" />
+          <StatCard
+            label="Total Domains"
+            value={stats?.totalDomains ?? 0}
+            icon={Globe}
+            color="bg-blue-500"
+          />
+          <StatCard
+            label="Total Inboxes"
+            value={stats?.totalInboxes ?? 0}
+            icon={Mail}
+            color="bg-[#4DB584]"
+          />
+          <StatCard
+            label="Servers"
+            value={stats?.totalServers ?? 0}
+            icon={Server}
+            color="bg-purple-500"
+          />
+          <StatCard
+            label="Active Jobs"
+            value={stats?.activeJobs ?? 0}
+            icon={Briefcase}
+            color="bg-orange-500"
+          />
         </div>
       )}
 

@@ -3,7 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { listDomains, deleteDomain, listDomainBatches } from "@/server/domains";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Globe, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -30,12 +36,16 @@ function DomainsPage() {
 
   const { data: domains = [], isLoading } = useQuery({
     queryKey: ["domains", batchFilter],
-    queryFn: () => listDomains({ data: batchFilter !== "all" ? { batchId: batchFilter } : undefined }),
+    queryFn: () =>
+      listDomains({ data: batchFilter !== "all" ? { batchId: batchFilter } : undefined }),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteDomain({ data: { id } }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["domains"] }); toast.success("Domain deleted"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["domains"] });
+      toast.success("Domain deleted");
+    },
     onError: () => toast.error("Failed to delete domain"),
   });
 
@@ -44,7 +54,9 @@ function DomainsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Domains</h1>
-          <p className="text-sm text-gray-500 mt-1">{domains.length} domain{domains.length !== 1 ? "s" : ""} total</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {domains.length} domain{domains.length !== 1 ? "s" : ""} total
+          </p>
         </div>
         <div className="flex gap-3">
           {batches.length > 0 && (
@@ -55,7 +67,9 @@ function DomainsPage() {
               <SelectContent>
                 <SelectItem value="all">All batches</SelectItem>
                 {batches.map((b: any) => (
-                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -64,7 +78,9 @@ function DomainsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
       ) : domains.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-3xl bg-white p-16 text-center ring-1 ring-black/5">
           <Globe className="h-12 w-12 text-gray-300" />
@@ -74,7 +90,10 @@ function DomainsPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {domains.map((d: any) => (
-            <div key={d.id} className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 ring-1 ring-black/5 shadow-sm hover:shadow-md transition-all group">
+            <div
+              key={d.id}
+              className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 ring-1 ring-black/5 shadow-sm hover:shadow-md transition-all group"
+            >
               <div className="flex items-center gap-4">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
                   <Globe className="h-4 w-4 text-blue-500" />
@@ -87,16 +106,28 @@ function DomainsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className={`rounded-lg px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[d.status] ?? "bg-gray-100 text-gray-600"}`}>
+                <span
+                  className={`rounded-lg px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[d.status] ?? "bg-gray-100 text-gray-600"}`}
+                >
                   {d.status}
                 </span>
                 <Link to="/domains/$id" params={{ id: d.id }}>
-                  <Button variant="ghost" size="icon" className="rounded-xl text-gray-400 hover:text-gray-700 group-hover:text-[#4DB584]">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-xl text-gray-400 hover:text-gray-700 group-hover:text-[#4DB584]"
+                  >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </Link>
-                <Button variant="ghost" size="icon" className="rounded-xl text-red-300 hover:text-red-600 hover:bg-red-50"
-                  onClick={() => { if (confirm(`Delete ${d.name}?`)) deleteMutation.mutate(d.id); }}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl text-red-300 hover:text-red-600 hover:bg-red-50"
+                  onClick={() => {
+                    if (confirm(`Delete ${d.name}?`)) deleteMutation.mutate(d.id);
+                  }}
+                >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>

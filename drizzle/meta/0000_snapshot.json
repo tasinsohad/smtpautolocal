@@ -109,12 +109,8 @@
           "name": "dns_records_domain_id_domains_id_fk",
           "tableFrom": "dns_records",
           "tableTo": "domains",
-          "columnsFrom": [
-            "domain_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["domain_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -244,12 +240,8 @@
           "name": "domain_plans_domain_id_domains_id_fk",
           "tableFrom": "domain_plans",
           "tableTo": "domains",
-          "columnsFrom": [
-            "domain_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["domain_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -351,9 +343,7 @@
       "indexes": {
         "domains_name_unique": {
           "name": "domains_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },
@@ -362,12 +352,8 @@
           "name": "domains_server_id_servers_id_fk",
           "tableFrom": "domains",
           "tableTo": "servers",
-          "columnsFrom": [
-            "server_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["server_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -525,12 +511,8 @@
           "name": "planned_inboxes_domain_id_domains_id_fk",
           "tableFrom": "planned_inboxes",
           "tableTo": "domains",
-          "columnsFrom": [
-            "domain_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["domain_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -538,12 +520,8 @@
           "name": "planned_inboxes_plan_id_domain_plans_id_fk",
           "tableFrom": "planned_inboxes",
           "tableTo": "domain_plans",
-          "columnsFrom": [
-            "plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plan_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -596,10 +574,7 @@
       "indexes": {
         "idx_user_provider": {
           "name": "idx_user_provider",
-          "columns": [
-            "user_id",
-            "provider"
-          ],
+          "columns": ["user_id", "provider"],
           "isUnique": true
         }
       },
@@ -747,9 +722,7 @@
       "indexes": {
         "user_secrets_user_id_unique": {
           "name": "user_secrets_user_id_unique",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": true
         }
       },
