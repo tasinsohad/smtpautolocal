@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addDomainsWizardAction, listDomainBatches, validateDomainsAgainstZones } from "@/server/domains";
+import { addDomainsWizardAction, listDomainBatches, validateDomainsAgainstZones, listDomains } from "@/server/domains";
 import { listServers } from "@/server/servers";
+import { listJobTemplates, saveJobTemplate, deleteJobTemplate } from "@/server/jobs";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { Loader2, Plus, Trash2, Wand2, Save, FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { parseList } from "@/lib/planning";
@@ -35,21 +36,19 @@ interface AddDomainWizardProps {
 export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   // Form State
   const [batchName, setBatchName] = useState("");
   const [domainList, setDomainList] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [newTemplateName, setNewTemplateName] = useState("");
   
-  // Per-domain rows (populated in step 2)
+  // Per-domain rows
   const [domainRows, setDomainRows] = useState<DomainRow[]>([]);
   const [validationResults, setValidationResults] = useState<{ name: string; valid: boolean; zoneId: string | null }[]>([]);
-
-  const validateMutation = useMutation({
-    mutationFn: (domains: string[]) => validateDomainsAgainstZones({ data: { domains } }),
-    onSuccess: (res) => setValidationResults(res),
-  });
 
   // Global settings
   const [prefixesText, setPrefixesText] = useState("mail,web,app,dev,api,shop,blog,news,info,support,cloud,portal");
@@ -58,6 +57,45 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const { data: servers = [] } = useQuery({
     queryKey: ["servers"],
     queryFn: () => listServers(),
+  });
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["job-templates"],
+    queryFn: () => listJobTemplates(),
+  });
+
+  const validateMutation = useMutation({
+    mutationFn: (domains: string[]) => validateDomainsAgainstZones({ data: { domains } }),
+    onSuccess: (res) => setValidationResults(res),
+  });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: (data: { name: string; subdomainPrefixes: string[]; personNames: string[] }) => 
+      saveJobTemplate({ data }),
+    onSuccess: (res: any) => {
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success("Template saved!");
+        qc.invalidateQueries({ queryKey: ["job-templates"] });
+        setSavingTemplate(false);
+        setNewTemplateName("");
+        if (res.id) {
+          setSelectedTemplateId(res.id);
+        }
+      }
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (id: string) => deleteJobTemplate({ data: { id } }),
+    onSuccess: (res: any) => {
+      if (res.ok) {
+        toast.success("Template deleted");
+        qc.invalidateQueries({ queryKey: ["job-templates"] });
+        if (selectedTemplateId) setSelectedTemplateId("");
+      }
+    },
   });
 
   const addMutation = useMutation({
@@ -72,7 +110,6 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         onOpenChange(false);
         resetForm();
 
-        // Redirect to the first domain in the list if it exists
         qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains() }).then((domains: any) => {
           if (domains && domains.length > 0) {
             navigate({ to: "/domains/$id", params: { id: domains[0].id } });
@@ -87,20 +124,49 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   });
 
   const resetForm = () => {
-    setStep(1);
+    setStep(0);
     setBatchName("");
     setDomainList("");
+    setSelectedTemplateId("");
     setDomainRows([]);
   };
 
+  const applyTemplate = (template: any) => {
+    if (template.subdomainPrefixes) {
+      setPrefixesText(template.subdomainPrefixes.join(", "));
+    }
+    if (template.personNames) {
+      setNamesText(template.personNames.join(", "));
+    }
+    setSelectedTemplateId(template.id);
+    toast.success(`Applied template: ${template.name}`);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!newTemplateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+    saveTemplateMutation.mutate({
+      name: newTemplateName,
+      subdomainPrefixes: parseList(prefixesText),
+      personNames: parseList(namesText),
+    });
+  };
+
   const handleNext = () => {
-    if (step === 1) {
+    if (step === 0) {
+      if (selectedTemplateId && selectedTemplateId !== "new") {
+        const template = templates.find((t: any) => t.id === selectedTemplateId);
+        if (template) applyTemplate(template);
+      }
+      setStep(1);
+    } else if (step === 1) {
       const domains = parseList(domainList);
       if (domains.length === 0) {
         toast.error("Please enter at least one domain");
         return;
       }
-      // Populate rows with defaults if they don't exist
       setDomainRows(domains.map(d => ({
         domain: d,
         ipAddress: servers[0]?.ipAddress || "1.2.3.4",
@@ -131,7 +197,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
     addMutation.mutate({
       batchName: batchName || `Batch ${new Date().toLocaleDateString()}`,
-      templateId: "default",
+      templateId: selectedTemplateId || "default",
       rows: domainRows,
       prefixes,
       names,
@@ -149,11 +215,11 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
               </div>
               <div>
                 <DialogTitle className="text-xl">Add Domains Wizard</DialogTitle>
-                <p className="text-xs text-gray-400 mt-1">Step {step} of 3</p>
+                <p className="text-xs text-gray-400 mt-1">Step {step + 1} of 4</p>
               </div>
             </div>
             <div className="flex gap-2">
-              {[1, 2, 3].map(s => (
+              {[0, 1, 2, 3].map(s => (
                 <div key={s} className={`h-1.5 w-8 rounded-full transition-colors ${s <= step ? 'bg-[#4DB584]' : 'bg-white/10'}`} />
               ))}
             </div>
@@ -161,6 +227,125 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         </DialogHeader>
 
         <div className="bg-white min-h-[400px] flex flex-col">
+          {step === 0 && (
+            <div className="p-8 flex flex-col gap-8 flex-1">
+              <div className="flex items-center gap-4 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                <FolderOpen className="h-5 w-5 text-blue-500" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-sm text-gray-900">Load Template (Optional)</h3>
+                  <p className="text-xs text-gray-500 mt-1">Select a saved template or continue with defaults</p>
+                </div>
+                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                  <SelectTrigger className="w-48 rounded-xl">
+                    <SelectValue placeholder="Select template..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">+ Create new template</SelectItem>
+                    {templates.map((t: any) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedTemplateId && selectedTemplateId !== "new" && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                    onClick={() => {
+                      if (confirm("Delete this template?")) {
+                        deleteTemplateMutation.mutate(selectedTemplateId);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" /> Delete
+                  </Button>
+                </div>
+              )}
+
+              <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6 flex items-start gap-4">
+                <div className="h-10 w-10 rounded-2xl bg-[#4DB584] text-white flex items-center justify-center shrink-0">
+                  <Wand2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Planning Configuration</h3>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                    Our AI planner generates unique, natural-looking inboxes. Save your prefixes and names as a template for future use.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <Label className="text-gray-900 font-bold text-sm tracking-tight">Subdomain Prefixes</Label>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Used for mail, tracking, and web subdomains</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-blue-500 hover:text-blue-600"
+                      onClick={() => setSavingTemplate(true)}
+                    >
+                      <Save className="h-3 w-3 mr-1" /> Save
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={prefixesText}
+                    onChange={(e) => setPrefixesText(e.target.value)}
+                    className="text-xs h-36 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
+                    placeholder="mail, web, app..."
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <Label className="text-gray-900 font-bold text-sm tracking-tight">Pool of Names</Label>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Assigned randomly to generated inboxes</p>
+                    </div>
+                  </div>
+                  <Textarea
+                    value={namesText}
+                    onChange={(e) => setNamesText(e.target.value)}
+                    className="text-xs h-36 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
+                    placeholder="John, Mary, Michael..."
+                  />
+                </div>
+              </div>
+
+              {savingTemplate && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-2xl p-6 w-96 shadow-2xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold">Save Template</h3>
+                      <Button variant="ghost" size="sm" onClick={() => setSavingTemplate(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder="Template name..."
+                      value={newTemplateName}
+                      onChange={(e) => setNewTemplateName(e.target.value)}
+                      className="rounded-xl mb-4"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" onClick={() => setSavingTemplate(false)}>Cancel</Button>
+                      <Button onClick={handleSaveTemplate} disabled={saveTemplateMutation.isPending}>
+                        {saveTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save Template
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {step === 1 && (
             <div className="p-8 flex flex-col gap-8 flex-1">
               <div className="flex flex-col gap-3">
@@ -275,43 +460,29 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
           {step === 3 && (
             <div className="p-8 flex flex-col gap-8 flex-1">
-              <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6 flex items-start gap-4">
-                <div className="h-10 w-10 rounded-2xl bg-[#4DB584] text-white flex items-center justify-center shrink-0">
-                  <Wand2 className="h-5 w-5" />
+              <div className="text-center">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#4DB584]/10 mb-4">
+                  <Wand2 className="h-6 w-6 text-[#4DB584]" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">Planning Configuration</h3>
-                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Our AI planner will use these lists to generate unique, natural-looking inboxes. 
-                    You can provide custom prefixes and names to match your specific needs.
-                  </p>
-                </div>
+                <h3 className="text-xl font-bold text-gray-900">Ready to Plan</h3>
+                <p className="text-sm text-gray-500 mt-2">
+                  This will create a job with {domainRows.length} domains and {domainRows.reduce((a, b) => a + b.inboxCount, 0)} total inboxes
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-8">
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col">
-                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Subdomain Prefixes</Label>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Used for mail, tracking, and web subdomains</p>
-                  </div>
-                  <Textarea
-                    value={prefixesText}
-                    onChange={(e) => setPrefixesText(e.target.value)}
-                    className="text-xs h-44 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
-                    placeholder="mail, web, app..."
-                  />
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                <div className="text-xs font-bold text-gray-400 uppercase">Summary</div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Domains</span>
+                  <span className="font-medium">{domainRows.length}</span>
                 </div>
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col">
-                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Pool of Names</Label>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Assigned randomly to generated inboxes</p>
-                  </div>
-                  <Textarea
-                    value={namesText}
-                    onChange={(e) => setNamesText(e.target.value)}
-                    className="text-xs h-44 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
-                    placeholder="John, Mary, Michael..."
-                  />
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total Inboxes</span>
+                  <span className="font-medium">{domainRows.reduce((a, b) => a + b.inboxCount, 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Template</span>
+                  <span className="font-medium">{selectedTemplateId || "Default"}</span>
                 </div>
               </div>
             </div>
@@ -321,10 +492,10 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => step === 1 ? onOpenChange(false) : setStep(step - 1)}
+              onClick={() => step === 0 ? onOpenChange(false) : setStep(step - 1)}
               className="rounded-2xl text-gray-500"
             >
-              {step === 1 ? 'Cancel' : 'Back'}
+              {step === 0 ? 'Cancel' : 'Back'}
             </Button>
             
             {step < 3 ? (
