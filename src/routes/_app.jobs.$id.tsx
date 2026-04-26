@@ -114,7 +114,7 @@ function JobDetailsPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Domains</div>
           <div className="text-3xl font-black text-blue-500">{domains.length}</div>
@@ -129,6 +129,11 @@ function JobDetailsPage() {
           <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">DNS Records</div>
           <div className="text-3xl font-black text-purple-500">{records.length}</div>
           <div className="text-[10px] text-gray-500">To be pushed to Cloudflare</div>
+        </div>
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Random Subdomains</div>
+          <div className="text-3xl font-black text-orange-500">{Object.keys(inboxesByDomain).reduce((total, domainId) => total + Object.keys(inboxesByDomain[domainId] || {}).length, 0)}</div>
+          <div className="text-[10px] text-gray-500">Random distribution</div>
         </div>
       </div>
 
@@ -228,7 +233,15 @@ function SubdomainSection({ prefix, domain, inboxes }: { prefix: string; domain:
           <Network className="h-4 w-4 text-purple-500" />
           <div>
             <div className="font-medium text-gray-800 text-sm">{prefix}.{domain}</div>
-            <div className="text-xs text-gray-400">{inboxes.length} mailboxes</div>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[100px]">
+                <div 
+                  className="h-full bg-[#4DB584] rounded-full" 
+                  style={{ width: `${Math.min(100, inboxes.length * 5)}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-500 font-medium">{inboxes.length} mailboxes</div>
+            </div>
           </div>
         </div>
       </button>

@@ -71,6 +71,7 @@ export interface DomainPlan {
   domain: string;
   totalInboxes: number;
   subdomainCount: number;
+  subdomainDistribution: Record<string, number>;
   inboxes: PlannedInbox[];
 }
 
@@ -177,16 +178,15 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   if (prefixes.length === 0) throw new Error("No subdomain prefixes provided");
   if (names.length === 0) throw new Error("No names provided");
 
-  const minAllowed = Math.max(1, input.minSubdomains ?? 1);
+  const minAllowed = Math.max(2, input.minSubdomains ?? 2);
   const maxAllowed = Math.min(prefixes.length, totalInboxes, input.maxSubdomains ?? 15);
 
-  const targetPerSub = input.targetPerSubdomain ?? randInt(6, 15);
+  const targetPerSub = input.targetPerSubdomain ?? randInt(4, 12);
   const idealCount = Math.ceil(totalInboxes / targetPerSub);
   
-  const jitter = randInt(-3, 3);
+  const jitter = randInt(-2, 2);
   let subdomainCount = Math.max(minAllowed, Math.min(maxAllowed, idealCount + jitter));
   
-  if (subdomainCount < 1) subdomainCount = 1;
   if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
 
   const chosenPrefixes = sampleUnique(prefixes, subdomainCount);
@@ -198,6 +198,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
 
   const globalSeen = new Set<string>();
   const inboxes: PlannedInbox[] = [];
+  const subdomainDistribution: Record<string, number> = {};
   
   let namePool = [...shuffledNames];
   let formatPool = [...shuffledFormats];
@@ -206,12 +207,14 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
     const prefix = chosenPrefixes[i];
     const fqdn = `${prefix}.${domain}`;
     const subSeen = new Set<string>();
+    subdomainDistribution[prefix] = 0;
 
     for (let n = 0; n < counts[i]; n++) {
       if (namePool.length === 0) {
         namePool = shuffle([...names]);
       }
       const personName = namePool.pop()!;
+      subdomainDistribution[prefix]++;
 
       const parts = personName.trim().split(/\s+/).map(slugify).filter(Boolean);
       const hasLastName = parts.length > 1;
@@ -266,7 +269,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
     }
   }
 
-  return { domain, totalInboxes, subdomainCount, inboxes };
+  return { domain, totalInboxes, subdomainCount, subdomainDistribution, inboxes };
 }
 
 function naturalSplit(total: number, buckets: number): number[] {

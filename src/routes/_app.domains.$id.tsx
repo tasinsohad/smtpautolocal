@@ -259,13 +259,24 @@ function DomainDetailsPage() {
             <Network className="h-5 w-5 text-gray-500" /> Subdomain Breakdown
           </h2>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(subdomainBreakdown).map(([prefix, count]: any) => (
-              <div key={prefix} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                <span className="text-xs font-mono font-bold text-gray-700">{prefix}</span>
-                <span className="h-4 w-[1px] bg-gray-200" />
-                <span className="text-xs font-bold text-[#4DB584]">{count} inboxes</span>
-              </div>
-            ))}
+            {Object.entries(subdomainBreakdown).map(([prefix, count]: [string, number]) => {
+              const maxCount = Math.max(...Object.values(subdomainBreakdown));
+              const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
+              return (
+                <div key={prefix} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-mono font-bold text-gray-700">{prefix}</span>
+                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-[#4DB584] rounded-full" 
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-[#4DB584]">{count} inboxes</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
