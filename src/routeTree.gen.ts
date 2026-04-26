@@ -16,6 +16,9 @@ import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppServersRouteImport } from './routes/_app.servers'
 import { Route as AppJobsRouteImport } from './routes/_app.jobs'
 import { Route as AppDomainsRouteImport } from './routes/_app.domains'
+import { Route as AppJobsIndexRouteImport } from './routes/_app.jobs.index'
+import { Route as AppDomainsIndexRouteImport } from './routes/_app.domains.index'
+import { Route as AppJobsIdRouteImport } from './routes/_app.jobs.$id'
 import { Route as AppDomainsIdRouteImport } from './routes/_app.domains.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -52,6 +55,21 @@ const AppDomainsRoute = AppDomainsRouteImport.update({
   path: '/domains',
   getParentRoute: () => AppRoute,
 } as any)
+const AppJobsIndexRoute = AppJobsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppJobsRoute,
+} as any)
+const AppDomainsIndexRoute = AppDomainsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppDomainsRoute,
+} as any)
+const AppJobsIdRoute = AppJobsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppJobsRoute,
+} as any)
 const AppDomainsIdRoute = AppDomainsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -62,30 +80,37 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/auth': typeof AuthRoute
   '/domains': typeof AppDomainsRouteWithChildren
-  '/jobs': typeof AppJobsRoute
+  '/jobs': typeof AppJobsRouteWithChildren
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRoute
   '/domains/$id': typeof AppDomainsIdRoute
+  '/jobs/$id': typeof AppJobsIdRoute
+  '/domains/': typeof AppDomainsIndexRoute
+  '/jobs/': typeof AppJobsIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
-  '/domains': typeof AppDomainsRouteWithChildren
-  '/jobs': typeof AppJobsRoute
   '/servers': typeof AppServersRoute
   '/settings': typeof AppSettingsRoute
   '/': typeof AppIndexRoute
   '/domains/$id': typeof AppDomainsIdRoute
+  '/jobs/$id': typeof AppJobsIdRoute
+  '/domains': typeof AppDomainsIndexRoute
+  '/jobs': typeof AppJobsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/_app/domains': typeof AppDomainsRouteWithChildren
-  '/_app/jobs': typeof AppJobsRoute
+  '/_app/jobs': typeof AppJobsRouteWithChildren
   '/_app/servers': typeof AppServersRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/domains/$id': typeof AppDomainsIdRoute
+  '/_app/jobs/$id': typeof AppJobsIdRoute
+  '/_app/domains/': typeof AppDomainsIndexRoute
+  '/_app/jobs/': typeof AppJobsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,15 +122,19 @@ export interface FileRouteTypes {
     | '/servers'
     | '/settings'
     | '/domains/$id'
+    | '/jobs/$id'
+    | '/domains/'
+    | '/jobs/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
-    | '/domains'
-    | '/jobs'
     | '/servers'
     | '/settings'
     | '/'
     | '/domains/$id'
+    | '/jobs/$id'
+    | '/domains'
+    | '/jobs'
   id:
     | '__root__'
     | '/_app'
@@ -116,6 +145,9 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/'
     | '/_app/domains/$id'
+    | '/_app/jobs/$id'
+    | '/_app/domains/'
+    | '/_app/jobs/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -174,6 +206,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDomainsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/jobs/': {
+      id: '/_app/jobs/'
+      path: '/'
+      fullPath: '/jobs/'
+      preLoaderRoute: typeof AppJobsIndexRouteImport
+      parentRoute: typeof AppJobsRoute
+    }
+    '/_app/domains/': {
+      id: '/_app/domains/'
+      path: '/'
+      fullPath: '/domains/'
+      preLoaderRoute: typeof AppDomainsIndexRouteImport
+      parentRoute: typeof AppDomainsRoute
+    }
+    '/_app/jobs/$id': {
+      id: '/_app/jobs/$id'
+      path: '/$id'
+      fullPath: '/jobs/$id'
+      preLoaderRoute: typeof AppJobsIdRouteImport
+      parentRoute: typeof AppJobsRoute
+    }
     '/_app/domains/$id': {
       id: '/_app/domains/$id'
       path: '/$id'
@@ -186,19 +239,34 @@ declare module '@tanstack/react-router' {
 
 interface AppDomainsRouteChildren {
   AppDomainsIdRoute: typeof AppDomainsIdRoute
+  AppDomainsIndexRoute: typeof AppDomainsIndexRoute
 }
 
 const AppDomainsRouteChildren: AppDomainsRouteChildren = {
   AppDomainsIdRoute: AppDomainsIdRoute,
+  AppDomainsIndexRoute: AppDomainsIndexRoute,
 }
 
 const AppDomainsRouteWithChildren = AppDomainsRoute._addFileChildren(
   AppDomainsRouteChildren,
 )
 
+interface AppJobsRouteChildren {
+  AppJobsIdRoute: typeof AppJobsIdRoute
+  AppJobsIndexRoute: typeof AppJobsIndexRoute
+}
+
+const AppJobsRouteChildren: AppJobsRouteChildren = {
+  AppJobsIdRoute: AppJobsIdRoute,
+  AppJobsIndexRoute: AppJobsIndexRoute,
+}
+
+const AppJobsRouteWithChildren =
+  AppJobsRoute._addFileChildren(AppJobsRouteChildren)
+
 interface AppRouteChildren {
   AppDomainsRoute: typeof AppDomainsRouteWithChildren
-  AppJobsRoute: typeof AppJobsRoute
+  AppJobsRoute: typeof AppJobsRouteWithChildren
   AppServersRoute: typeof AppServersRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -206,7 +274,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppDomainsRoute: AppDomainsRouteWithChildren,
-  AppJobsRoute: AppJobsRoute,
+  AppJobsRoute: AppJobsRouteWithChildren,
   AppServersRoute: AppServersRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
