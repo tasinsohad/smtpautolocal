@@ -80,7 +80,7 @@ function rand(): number {
   return Math.random();
 }
 
-function randInt(min: number, max: number): number {
+export function randInt(min: number, max: number): number {
   return Math.floor(rand() * (max - min + 1)) + min;
 }
 
@@ -178,7 +178,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   if (prefixes.length === 0) throw new Error("No subdomain prefixes provided");
   if (names.length === 0) throw new Error("No names provided");
 
-  const minAllowed = Math.max(3, input.minSubdomains ?? 3);
+  const minAllowed = input.minSubdomains ?? 1;
   const maxAllowed = input.maxSubdomains ?? 15;
 
   let subdomainCount = randInt(minAllowed, maxAllowed);
@@ -270,47 +270,36 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
 
 function naturalSplit(total: number, buckets: number): number[] {
   if (buckets <= 0) return [];
-  if (buckets >= total) {
-    return new Array(buckets)
-      .fill(1)
-      .map((_, i) => (i < total ? 1 : 0))
-      .slice(0, Math.min(buckets, total));
+  if (buckets > total) {
+    // Each bucket gets at least 1, rest get 0
+    return new Array(buckets).fill(1).map((_, i) => (i < total ? 1 : 0));
   }
 
-  const minPerSub = 2;
+  const minPerSub = 1;
   const maxPerSub = 8;
-  
-  const result: number[] = [];
-  
-  for (let i = 0; i < buckets; i++) {
-    let num = randInt(minPerSub, maxPerSub);
-    if (num > total) num = total;
-    result.push(num);
+
+  // Start with minimum (1) for each bucket
+  const result = new Array(buckets).fill(minPerSub);
+  let remaining = total - buckets; // remaining after giving 1 to each
+
+  if (remaining < 0) {
+    // Should not happen due to check above, but handle gracefully
+    return new Array(buckets).fill(1).slice(0, total);
   }
-  
-  let sum = result.reduce((a, b) => a + b, 0);
-  
+
+  // Randomly distribute remaining inboxes
   let attempts = 0;
-  while (sum !== total && attempts < 100) {
-    const diff = total - sum;
-    if (diff === 0) break;
-    
+  while (remaining > 0 && attempts < 1000) {
     const pos = randInt(0, buckets - 1);
-    const current = result[pos];
-    
-    if (diff > 0 && current < maxPerSub) {
-      const add = randInt(1, Math.min(maxPerSub - current, diff));
-      result[pos] = current + add;
-      sum += add;
-    } else if (diff < 0 && current > minPerSub) {
-      const sub = randInt(1, Math.min(current - minPerSub, -diff));
-      result[pos] = current - sub;
-      sum -= sub;
+    if (result[pos] < maxPerSub) {
+      result[pos]++;
+      remaining--;
     }
     attempts++;
   }
 
-  return result;
+  // Shuffle to make distribution random
+  return shuffle(result);
 }
 
 export function parseList(value: string): string[] {

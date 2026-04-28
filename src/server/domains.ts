@@ -255,6 +255,24 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
         ),
         prefixes: z.array(z.string()),
         names: z.array(z.string()),
+        plannedResults: z.array(
+          z.object({
+            domain: z.string(),
+            totalInboxes: z.number(),
+            subdomainCount: z.number(),
+            subdomainDistribution: z.record(z.string(), z.number()),
+            inboxes: z.array(
+              z.object({
+                subdomainPrefix: z.string(),
+                subdomainFqdn: z.string(),
+                localPart: z.string(),
+                email: z.string(),
+                personName: z.string(),
+                format: z.string(),
+              }),
+            ),
+          }),
+        ).optional(),
       })
       .parse(d),
   )
@@ -305,7 +323,8 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
           })
           .returning();
 
-        const plan = planDomain(row.domain, {
+        // Use pre-planned results from client, or fall back to server planning
+        const plan = data.plannedResults?.find(p => p.domain === row.domain) || planDomain(row.domain, {
           totalInboxes: row.inboxCount,
           prefixes: data.prefixes,
           names: data.names,
@@ -351,7 +370,7 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
             domainId: domain.id,
             type: "TXT",
             name: "dkim._domainkey",
-            content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACEHOLDER",
+            content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACE_HOLDER",
           },
         ];
 
@@ -401,7 +420,7 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
               domainId: domain.id,
               type: "TXT",
               name: `dkim._domainkey.${sub}`,
-              content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACEHOLDER",
+              content: "v=DKIM1;k=rsa;t=s;s=email;p=PLACE_HOLDER",
             },
           );
         }
@@ -417,6 +436,7 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
       return { okCount: 0, error: `Critical Failure: ${msg}` };
     }
   });
+
 export const getBatchDetails = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))

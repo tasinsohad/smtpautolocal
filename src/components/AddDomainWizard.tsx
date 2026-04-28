@@ -86,14 +86,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Plus, Trash2, Wand2, Save, FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
-import { parseList } from "@/lib/planning";
+import { parseList, planDomain, randInt, DomainPlan } from "@/lib/planning";
 
 interface DomainRow {
   domain: string;
   ipAddress: string;
   sshUser: string;
   sshPassword?: string;
-  inboxCount: number;
+  plannedSubdomainCount?: number;
+  plannedInboxCount?: number;
+  plannedDistribution?: number[];
 }
 
 interface AddDomainWizardProps {
@@ -121,6 +123,15 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   // Global settings
   const [prefixesText, setPrefixesText] = useState("mail\nweb\napp\ndev\napi\nshop\nblog\nnews\ninfo\nsupport\ncloud\nportal");
   const [namesText, setNamesText] = useState("John\nMichael\nDavid\nChris\nJames\nRobert\nEmily\nSarah\nJessica\nEmma\nLinda\nMary");
+
+  // Global range inputs
+  const [minSubdomains, setMinSubdomains] = useState(3);
+  const [maxSubdomains, setMaxSubdomains] = useState(15);
+  const [minInboxes, setMinInboxes] = useState(10);
+  const [maxInboxes, setMaxInboxes] = useState(50);
+
+  // Planned results for preview
+  const [plannedResults, setPlannedResults] = useState<DomainPlan[]>([]);
 
   const { data: servers = [] } = useQuery({
     queryKey: ["servers"],
@@ -222,6 +233,53 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     });
   };
 
+  const planAllDomains = () => {
+    const prefixes = parseList(prefixesText);
+    const names = parseList(namesText);
+    const results: DomainPlan[] = [];
+
+    for (const row of domainRows) {
+      let attempts = 0;
+      let plan: DomainPlan | null = null;
+
+      while (attempts < 10 && !plan) {
+        const subdomainCount = randInt(minSubdomains, maxSubdomains);
+        const totalInboxes = randInt(minInboxes, maxInboxes);
+
+        try {
+          plan = planDomain(row.domain, {
+            totalInboxes,
+            prefixes,
+            names,
+            minSubdomains: subdomainCount,
+            maxSubdomains: subdomainCount,
+          });
+          if (plan.inboxes.length !== totalInboxes) {
+            plan = null;
+            attempts++;
+          }
+        } catch (e) {
+          attempts++;
+        }
+      }
+
+      if (!plan) {
+        toast.error(`Failed to plan ${row.domain} after 10 attempts`);
+        return;
+      }
+
+      results.push(plan);
+    }
+
+    setPlannedResults(results);
+    setDomainRows(prev => prev.map((row, i) => ({
+      ...row,
+      plannedSubdomainCount: results[i]?.subdomainCount,
+      plannedInboxCount: results[i]?.totalInboxes,
+      plannedDistribution: results[i] ? Object.values(results[i].subdomainDistribution) : [],
+    })));
+  };
+
   const handleNext = () => {
     if (step === 0) {
       if (selectedTemplateId && selectedTemplateId !== "new") {
@@ -240,10 +298,10 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         ipAddress: servers[0]?.ipAddress || "1.2.3.4",
         sshUser: servers[0]?.sshUser || "root",
         sshPassword: "",
-        inboxCount: 50
       })));
       setStep(2);
     } else if (step === 2) {
+      planAllDomains();
       setStep(3);
     }
   };
@@ -266,9 +324,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     addMutation.mutate({
       batchName: batchName || `Batch ${new Date().toLocaleDateString()}`,
       templateId: selectedTemplateId || "default",
-      rows: domainRows,
+      rows: domainRows.map(row => ({
+        ...row,
+        inboxCount: row.plannedInboxCount || 0,
+      })),
       prefixes,
       names,
+      plannedResults,
     });
   };
 
@@ -476,67 +538,162 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
           {step === 2 && (
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,1fr] gap-4 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">
+              {/* Global Range Inputs */}
+              <div className="p-8 pb-4 flex flex-col gap-6">
+                <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6">
+                  <h3 className="font-semibold text-gray-900 text-sm mb-4">Global Range Settings</h3>
+                  <p className="text-[10px] text-gray-500 mb-4">These ranges apply to all domains in the batch. Each domain will randomly get values within these ranges.</p>
+
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-gray-900 font-bold text-xs">Subdomains per Domain</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={minSubdomains}
+                          onChange={(e) => setMinSubdomains(Number(e.target.value))}
+                          className="h-9 rounded-xl text-xs"
+                          placeholder="Min"
+                          min={1}
+                        />
+                        <span className="text-gray-400">—</span>
+                        <Input
+                          type="number"
+                          value={maxSubdomains}
+                          onChange={(e) => setMaxSubdomains(Number(e.target.value))}
+                          className="h-9 rounded-xl text-xs"
+                          placeholder="Max"
+                          min={1}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Label className="text-gray-900 font-bold text-xs">Inboxes per Domain</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={minInboxes}
+                          onChange={(e) => setMinInboxes(Number(e.target.value))}
+                          className="h-9 rounded-xl text-xs"
+                          placeholder="Min"
+                          min={1}
+                        />
+                        <span className="text-gray-400">—</span>
+                        <Input
+                          type="number"
+                          value={maxInboxes}
+                          onChange={(e) => setMaxInboxes(Number(e.target.value))}
+                          className="h-9 rounded-xl text-xs"
+                          placeholder="Max"
+                          min={1}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {minSubdomains < 1 && (
+                    <p className="text-[10px] text-red-500 mt-2">Min subdomains must be ≥ 1</p>
+                  )}
+                  {maxSubdomains < minSubdomains && (
+                    <p className="text-[10px] text-red-500 mt-2">Max subdomains must be ≥ Min</p>
+                  )}
+                  {minInboxes < maxSubdomains && (
+                    <p className="text-[10px] text-red-500 mt-2">Min inboxes must be ≥ Max subdomains (to ensure at least 1 inbox per subdomain)</p>
+                  )}
+                  {maxInboxes < minInboxes && (
+                    <p className="text-[10px] text-red-500 mt-2">Max inboxes must be ≥ Min inboxes</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Domain List with Server Config */}
+              <div className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 px-8 text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em] mb-3">
                 <div>Domain Name</div>
                 <div>IP Address</div>
                 <div>SSH User</div>
                 <div>SSH Password</div>
-                <div>Inboxes</div>
               </div>
-              <div className="p-4 px-8 flex flex-col gap-3 flex-1 overflow-auto max-h-[450px] scrollbar-thin scrollbar-thumb-gray-200">
+              <div className="px-8 flex flex-col gap-3 flex-1 overflow-auto max-h-[350px] scrollbar-thin scrollbar-thumb-gray-200">
                 {domainRows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr,1fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
+                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
                     <div className="font-semibold text-gray-700 truncate text-sm px-1" title={row.domain}>
                       {row.domain}
                     </div>
-                    <Input 
-                      value={row.ipAddress} 
+                    <Input
+                      value={row.ipAddress}
                       onChange={(e) => updateRow(i, 'ipAddress', e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-mono transition-all"
                       placeholder="IP Address"
                     />
-                    <Input 
-                      value={row.sshUser} 
+                    <Input
+                      value={row.sshUser}
                       onChange={(e) => updateRow(i, 'sshUser', e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
                       placeholder="User"
                     />
-                    <Input 
+                    <Input
                       type="password"
-                      value={row.sshPassword || ""} 
+                      value={row.sshPassword || ""}
                       onChange={(e) => updateRow(i, 'sshPassword', e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
                       placeholder="Password"
                     />
-                    <Input 
-                      type="number"
-                      value={row.inboxCount} 
-                      onChange={(e) => updateRow(i, 'inboxCount', Number(e.target.value))}
-                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
-                      placeholder="Count"
-                    />
                   </div>
                 ))}
-              </div>
-              <div className="px-8 py-3 bg-blue-50/30 border-t border-blue-100/50">
-                <p className="text-[10px] text-blue-500 font-medium flex items-center gap-2">
-                  <div className="h-1 w-1 rounded-full bg-blue-400" />
-                  Tip: You can individually override settings for each domain in this batch.
-                </p>
               </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="p-8 flex flex-col gap-8 flex-1">
+            <div className="p-8 flex flex-col gap-6 flex-1">
               <div className="text-center">
                 <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#4DB584]/10 mb-4">
                   <Wand2 className="h-6 w-6 text-[#4DB584]" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900">Ready to Plan</h3>
+                <h3 className="text-xl font-bold text-gray-900">Planning Preview</h3>
                 <p className="text-sm text-gray-500 mt-2">
-                  This will create a job with {domainRows.length} domains and {domainRows.reduce((a, b) => a + b.inboxCount, 0)} total inboxes
+                  Review the random values generated for each domain
                 </p>
+              </div>
+
+              <div className="flex justify-center">
+                <Button
+                  onClick={() => {
+                    planAllDomains();
+                    toast.success("Re-randomized all domains!");
+                  }}
+                  variant="outline"
+                  className="rounded-xl border-[#4DB584] text-[#4DB584] hover:bg-[#4DB584]/10"
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Re-randomize All
+                </Button>
+              </div>
+
+              <div className="overflow-auto max-h-[300px] scrollbar-thin scrollbar-thumb-gray-200">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-white">
+                    <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.1em]">
+                      <th className="text-left pb-3">Domain</th>
+                      <th className="text-center pb-3">Subdomains</th>
+                      <th className="text-center pb-3">Total Inboxes</th>
+                      <th className="text-left pb-3">Distribution</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {domainRows.map((row, i) => (
+                      <tr key={i} className="hover:bg-gray-50/50">
+                        <td className="py-3 font-medium text-gray-700">{row.domain}</td>
+                        <td className="py-3 text-center text-gray-600">{row.plannedSubdomainCount || 0}</td>
+                        <td className="py-3 text-center text-gray-600">{row.plannedInboxCount || 0}</td>
+                        <td className="py-3 text-[10px] text-gray-500 font-mono">
+                          {row.plannedDistribution?.join(', ') || '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
@@ -547,7 +704,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Total Inboxes</span>
-                  <span className="font-medium">{domainRows.reduce((a, b) => a + b.inboxCount, 0)}</span>
+                  <span className="font-medium">{domainRows.reduce((a, b) => a + (b.plannedInboxCount || 0), 0)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Template</span>
