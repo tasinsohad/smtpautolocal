@@ -1,16 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getBatchDetails } from "@/server/domains";
-import { Globe, FolderGit2, ArrowLeft, Loader2, Mail, Send, Server, ShieldCheck, ChevronDown, ChevronRight, Network, Key } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { getBatchDetails, batchPushDnsToCloudflare, checkDnsPropagation } from "@/server/domains";
+import { testSshConnection, provisionServer } from "@/server/provisioning";
+import { Globe, FolderGit2, ArrowLeft, Loader2, Mail, Send, Server, CheckCircle2, XCircle, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_app/jobs/$id")({
-  component: JobDetailsPage,
+  component: JobPipelinePage,
 });
 
-function JobDetailsPage() {
+type Step = "VIEW" | "PRE_FLIGHT" | "DNS_PUSH" | "SERVER_SETUP";
+
+function JobPipelinePage() {
   const { id } = Route.useParams();
+  const [step, setStep] = useState<Step>("VIEW");
 
   const { data, isLoading } = useQuery({
     queryKey: ["batch", id],
@@ -26,16 +31,6 @@ function JobDetailsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const records = (data as any)?.records ?? [];
 
-  // Group inboxes by domain then subdomain
-  const inboxesByDomain = inboxes.reduce((acc: any, ib: any) => {
-    if (!acc[ib.domainId]) acc[ib.domainId] = {};
-    if (!acc[ib.domainId][ib.subdomainPrefix]) {
-      acc[ib.domainId][ib.subdomainPrefix] = [];
-    }
-    acc[ib.domainId][ib.subdomainPrefix].push(ib);
-    return acc;
-  }, {});
-
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
@@ -49,225 +44,353 @@ function JobDetailsPage() {
       <div className="flex flex-col items-center justify-center py-20">
         <FolderGit2 className="h-12 w-12 text-red-500 mb-4" />
         <h2 className="text-xl font-bold">Job not found</h2>
-        <Link to="/jobs" className="text-blue-500 hover:underline mt-2">
-          Back to Jobs
-        </Link>
+        <Link to="/jobs" className="text-blue-500 hover:underline mt-2">Back to Jobs</Link>
       </div>
     );
   }
 
-  const exportCsv = () => {
-    if (!inboxes.length) return;
-    
-    const headers = ["Domain", "Subdomain Prefix", "Subdomain FQDN", "Email Address", "Local Part", "Person Name", "Format", "IP Address", "SSH User"];
-    const rows = inboxes.map((ib: any) => {
-      const domain = domains.find((d: any) => d.id === ib.domainId);
-      return [
-        domain?.name || "",
-        ib.subdomainPrefix || "",
-        ib.subdomainFqdn || "",
-        ib.email || "",
-        ib.localPart || "",
-        ib.personName || "",
-        ib.format || "",
-        domain?.ipAddress || "",
-        domain?.sshUser || ""
-      ];
+  return (
+    <div className="flex flex-col gap-6 p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {step === "VIEW" ? (
+            <Link to="/jobs">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5 hover:bg-gray-50 transition-colors">
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </div>
+            </Link>
+          ) : (
+            <Button variant="ghost" size="icon" onClick={() => setStep("VIEW")}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{batch.name}</h1>
+            <div className="flex gap-2 items-center text-sm text-gray-500 mt-1">
+               <span>Step:</span>
+               <span className={`font-bold ${step === "VIEW" ? "text-blue-600" : ""}`}>Plan</span>
+               <span>→</span>
+               <span className={`font-bold ${step === "PRE_FLIGHT" ? "text-blue-600" : ""}`}>Pre-Flight</span>
+               <span>→</span>
+               <span className={`font-bold ${step === "DNS_PUSH" ? "text-blue-600" : ""}`}>DNS Push</span>
+               <span>→</span>
+               <span className={`font-bold ${step === "SERVER_SETUP" ? "text-blue-600" : ""}`}>Server Setup</span>
+            </div>
+          </div>
+        </div>
+        {step === "VIEW" && (
+          <Button onClick={() => setStep("PRE_FLIGHT")} className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
+            Start Provisioning Pipeline
+          </Button>
+        )}
+      </div>
+
+      {step === "VIEW" && <ViewStep domains={domains} inboxes={inboxes} records={records} />}
+      {step === "PRE_FLIGHT" && <PreFlightStep domains={domains} inboxes={inboxes} records={records} onNext={() => setStep("DNS_PUSH")} />}
+      {step === "DNS_PUSH" && <DnsPushStep domains={domains} records={records} onNext={() => setStep("SERVER_SETUP")} />}
+      {step === "SERVER_SETUP" && <ServerSetupStep domains={domains} />}
+    </div>
+  );
+}
+
+// --- STEP 1: VIEW (Original Read-Only View) ---
+function ViewStep({ domains, inboxes, records }: { domains: any[], inboxes: any[], records: any[] }) {
+  const inboxesByDomain = inboxes.reduce((acc: any, ib: any) => {
+    if (!acc[ib.domainId]) acc[ib.domainId] = {};
+    if (!acc[ib.domainId][ib.subdomainPrefix]) acc[ib.domainId][ib.subdomainPrefix] = [];
+    acc[ib.domainId][ib.subdomainPrefix].push(ib);
+    return acc;
+  }, {});
+
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase">Total Domains</div>
+          <div className="text-3xl font-black text-blue-500">{domains.length}</div>
+        </div>
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase">Total Inboxes</div>
+          <div className="text-3xl font-black text-[#4DB584]">{inboxes.length}</div>
+        </div>
+        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
+          <div className="text-xs font-bold text-gray-400 uppercase">DNS Records</div>
+          <div className="text-3xl font-black text-purple-500">{records.length}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- STEP 2: PRE_FLIGHT ---
+function PreFlightStep({ domains, inboxes, records, onNext }: { domains: any[], inboxes: any[], records: any[], onNext: () => void }) {
+  const [sshStatuses, setSshStatuses] = useState<Record<string, "testing" | "ok" | "fail">>({});
+
+  const testSsh = useMutation({
+    mutationFn: (args: { data: { domainId: string } }) => testSshConnection(args),
+    onSuccess: (res: any, variables: { data: { domainId: string } }) => {
+      setSshStatuses(prev => ({ ...prev, [variables.data.domainId]: res.success ? "ok" : "fail" }));
+    }
+  });
+
+  const runSshTests = () => {
+    domains.forEach(d => {
+      setSshStatuses(prev => ({ ...prev, [d.id]: "testing" }));
+      testSsh.mutate({ data: { domainId: d.id } });
     });
-    
-    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `job_${batch.name}_all_inboxes.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-4 bg-white rounded-3xl p-6 shadow-sm ring-1 ring-black/5">
+      <Tabs defaultValue="dns" onValueChange={(v) => { if (v === "server") runSshTests(); }}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="dns">DNS Preview</TabsTrigger>
+          <TabsTrigger value="mailboxes">Mailbox Plan</TabsTrigger>
+          <TabsTrigger value="server">Server Check</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dns" className="flex flex-col gap-4">
+          {domains.map(d => {
+             const dRecords = records.filter(r => r.domainId === d.id);
+             return (
+               <div key={d.id} className="border rounded-xl p-4">
+                 <h3 className="font-bold mb-2 flex items-center gap-2"><Globe className="w-4 h-4"/>{d.name}</h3>
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-sm text-left">
+                     <thead>
+                       <tr className="bg-gray-50">
+                         <th className="p-2">Name</th>
+                         <th className="p-2">Type</th>
+                         <th className="p-2">Content</th>
+                         <th className="p-2">TTL</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {dRecords.map(r => (
+                         <tr key={r.id} className="border-b last:border-0">
+                           <td className="p-2">{r.name}</td>
+                           <td className="p-2"><span className="bg-gray-200 px-1 rounded text-xs">{r.type}</span></td>
+                           <td className="p-2 truncate max-w-[200px]" title={r.content}>{r.content}</td>
+                           <td className="p-2">{r.ttl}</td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 </div>
+               </div>
+             );
+          })}
+        </TabsContent>
+
+        <TabsContent value="mailboxes">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {domains.map(d => {
+               const dInboxes = inboxes.filter(i => i.domainId === d.id);
+               return (
+                 <div key={d.id} className="border rounded-xl p-4">
+                   <h3 className="font-bold mb-2">{d.name}</h3>
+                   <div className="text-sm text-gray-500">{dInboxes.length} inboxes planned</div>
+                 </div>
+               )
+             })}
+           </div>
+        </TabsContent>
+
+        <TabsContent value="server" className="flex flex-col gap-4">
+           {domains.map(d => (
+             <div key={d.id} className="border rounded-xl p-4 flex items-center justify-between">
+               <div className="flex flex-col">
+                 <span className="font-bold">{d.name}</span>
+                 <span className="text-xs text-gray-500">{d.ipAddress} | {d.sshUser}</span>
+               </div>
+               <div>
+                 {sshStatuses[d.id] === "testing" && <Loader2 className="animate-spin text-blue-500" />}
+                 {sshStatuses[d.id] === "ok" && <CheckCircle2 className="text-green-500" />}
+                 {sshStatuses[d.id] === "fail" && <XCircle className="text-red-500" />}
+               </div>
+             </div>
+           ))}
+           {Object.values(sshStatuses).includes("fail") && (
+             <div className="p-4 bg-red-50 text-red-700 rounded-xl text-sm flex items-center gap-2">
+                <XCircle className="w-4 h-4"/> Warning: Some servers are unreachable. You may proceed, but server setup will fail.
+             </div>
+           )}
+        </TabsContent>
+      </Tabs>
+      <div className="pt-4 border-t flex justify-end">
+        <Button onClick={onNext} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">Confirm & Start</Button>
+      </div>
+    </div>
+  );
+}
+
+// --- STEP 3: DNS PUSH ---
+function DnsPushStep({ domains, records, onNext }: { domains: any[], records: any[], onNext: () => void }) {
+  const [progress, setProgress] = useState<Record<string, { current: number, total: number, status: "pending" | "pushing" | "done" | "error" }>>({});
+  const [logs, setLogs] = useState<Record<string, any[]>>({});
+  const [propagation, setPropagation] = useState<Record<string, "pending" | "ok" | "fail">>({});
+  const [isRunning, setIsRunning] = useState(false);
+
+  const pushMutation = useMutation({ mutationFn: (args: { data: { domainId: string } }) => batchPushDnsToCloudflare(args) });
+  const propMutation = useMutation({ mutationFn: (args: { data: { domainName: string } }) => checkDnsPropagation(args) });
+
+  const startPush = async () => {
+    setIsRunning(true);
+    for (const d of domains) {
+       const dRecords = records.filter(r => r.domainId === d.id);
+       setProgress(p => ({ ...p, [d.id]: { current: 0, total: dRecords.length, status: "pushing" } }));
+       
+       const res = await pushMutation.mutateAsync({ data: { domainId: d.id } });
+       
+       setLogs(l => ({ ...l, [d.id]: res.results }));
+       const hasError = res.results?.some((r: any) => !r.success) || false;
+       setProgress(p => ({ ...p, [d.id]: { current: dRecords.length, total: dRecords.length, status: hasError ? "error" : "done" } }));
+
+       // Propagation check
+       if (!hasError) {
+          const propRes = await propMutation.mutateAsync({ data: { domainName: d.name } });
+          setPropagation(p => ({ ...p, [d.id]: propRes.success ? "ok" : "fail" }));
+       }
+    }
+    setIsRunning(false);
+  };
+
+  useEffect(() => {
+    startPush();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const totalDone = Object.values(progress).filter(p => p.status === "done" || p.status === "error").length;
+
+  return (
+    <div className="flex flex-col gap-6 bg-white rounded-3xl p-6 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/jobs">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5 hover:bg-gray-50 transition-colors">
-              <ArrowLeft className="h-5 w-5 text-gray-600" />
-            </div>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{batch.name}</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Started on {new Date(batch.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          onClick={exportCsv}
-          disabled={!inboxes.length}
-          className="rounded-2xl h-11 gap-2 border-gray-200 shadow-sm"
-        >
-          <Send className="h-4 w-4" /> Export All Inboxes (CSV)
-        </Button>
+         <h2 className="text-xl font-bold">Cloudflare DNS Push</h2>
+         <div className="text-sm text-gray-500">{totalDone} / {domains.length} domains processed</div>
       </div>
+      
+      {domains.map(d => {
+         const p = progress[d.id];
+         const l = logs[d.id] || [];
+         if (!p) return null;
+         return (
+           <div key={d.id} className="border rounded-xl p-4 flex flex-col gap-3">
+             <div className="flex justify-between items-center">
+               <span className="font-bold flex items-center gap-2">
+                 <Globe className="w-4 h-4"/> {d.name}
+               </span>
+               <span className="text-xs text-gray-500">
+                 {p.status === "pushing" && <Loader2 className="w-3 h-3 animate-spin inline mr-1"/>}
+                 {p.current} / {p.total} records
+               </span>
+             </div>
+             <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div className={`h-full ${p.status === "error" ? "bg-red-500" : "bg-blue-500"} transition-all`} style={{ width: `${(p.current / (p.total||1)) * 100}%` }} />
+             </div>
+             {l.length > 0 && (
+               <div className="max-h-32 overflow-y-auto text-xs font-mono bg-gray-50 p-2 rounded border">
+                 {l.map((res: any, i) => (
+                   <div key={i} className={res.success ? "text-green-700" : "text-red-700"}>
+                     {res.success ? "✅" : "❌"} {res.name} {res.error ? `- ${res.error}` : ""}
+                   </div>
+                 ))}
+               </div>
+             )}
+             {p.status === "done" && (
+                <div className="text-xs flex items-center gap-2 mt-2">
+                   Propagation Check: 
+                   {propagation[d.id] === "pending" && <Loader2 className="w-3 h-3 animate-spin text-blue-500"/>}
+                   {propagation[d.id] === "ok" && <span className="text-green-600 font-bold">Passed</span>}
+                   {propagation[d.id] === "fail" && <span className="text-amber-600 font-bold">Awaiting Global Propagation</span>}
+                </div>
+             )}
+           </div>
+         );
+      })}
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Domains</div>
-          <div className="text-3xl font-black text-blue-500">{domains.length}</div>
-          <div className="text-[10px] text-gray-500">In this batch</div>
-        </div>
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Inboxes</div>
-          <div className="text-3xl font-black text-[#4DB584]">{inboxes.length}</div>
-          <div className="text-[10px] text-gray-500">Planned for deployment</div>
-        </div>
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">DNS Records</div>
-          <div className="text-3xl font-black text-purple-500">{records.length}</div>
-          <div className="text-[10px] text-gray-500">To be pushed to Cloudflare</div>
-        </div>
-        <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Random Subdomains</div>
-          <div className="text-3xl font-black text-orange-500">{Object.keys(inboxesByDomain).reduce((total, domainId) => total + Object.keys(inboxesByDomain[domainId] || {}).length, 0)}</div>
-          <div className="text-[10px] text-gray-500">Random distribution</div>
-        </div>
-      </div>
-
-      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-4">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <FolderGit2 className="h-5 w-5 text-gray-500" /> Planned Infrastructure
-        </h2>
-        <p className="text-sm text-gray-500">
-          Each domain shows its subdomains and mailboxes. Click to expand.
-        </p>
-        
-        <div className="flex flex-col gap-3">
-          {domains.map((domain: any) => (
-            <DomainSection 
-              key={domain.id} 
-              domain={domain} 
-              subdomains={inboxesByDomain[domain.id] || {}} 
-            />
-          ))}
-        </div>
+      <div className="pt-4 border-t flex justify-end">
+        <Button onClick={onNext} disabled={isRunning} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">Proceed to Server Setup</Button>
       </div>
     </div>
   );
 }
 
-function DomainSection({ domain, subdomains }: { domain: any; subdomains: Record<string, any[]> }) {
-  const [expanded, setExpanded] = useState(false);
-  const subdomainList = Object.entries(subdomains);
-  const totalInboxes = Object.values(subdomains).flat().length;
-
+// --- STEP 4: SERVER SETUP ---
+function ServerSetupStep({ domains }: { domains: any[] }) {
   return (
-    <div className="rounded-2xl border border-gray-100 overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
-      >
-        <div className="flex items-center gap-3">
-          {expanded ? (
-            <ChevronDown className="h-5 w-5 text-gray-400" />
-          ) : (
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          )}
-          <Globe className="h-5 w-5 text-blue-500" />
-          <div>
-            <div className="font-semibold text-gray-900">{domain.name}</div>
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <Server className="h-3 w-3" />
-                {domain.ipAddress || "No IP"}
-              </span>
-              <span className="flex items-center gap-1">
-                <Key className="h-3 w-3" />
-                {domain.sshUser || "root"}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <div className="text-sm font-bold text-gray-900">{subdomainList.length} subdomains</div>
-            <div className="text-xs text-[#4DB584]">{totalInboxes} inboxes</div>
-          </div>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-gray-100 bg-gray-50/30 p-4 flex flex-col gap-3">
-          {subdomainList.map(([prefix, inboxes]: [string, any[]]) => (
-            <SubdomainSection 
-              key={prefix} 
-              prefix={prefix} 
-              domain={domain.name} 
-              inboxes={inboxes} 
-            />
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {domains.map(d => (
+         <TerminalWindow key={d.id} domain={d} />
+      ))}
     </div>
   );
 }
 
-function SubdomainSection({ prefix, domain, inboxes }: { prefix: string; domain: string; inboxes: any[] }) {
-  const [expanded, setExpanded] = useState(false);
+function TerminalWindow({ domain }: { domain: any }) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const [status, setStatus] = useState("Queued");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const provMutation = useMutation({ mutationFn: (args: { data: { domainId: string } }) => provisionServer(args) });
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    if (started) return;
+    setStarted(true);
+    
+    provMutation.mutateAsync({ data: { domainId: domain.id } }).then(res => {
+      if (res.jobId) {
+         setStatus("Connecting");
+         const eventSource = new EventSource(`/api/sse?domainId=${domain.id}`);
+         eventSource.onmessage = (event) => {
+           const parsed = JSON.parse(event.data);
+           if (parsed.status) setStatus(parsed.status);
+           if (parsed.chunk) {
+             setLogs(prev => [...prev, parsed.chunk]);
+           } else if (parsed.msg) {
+             setLogs(prev => [...prev, `[System] ${parsed.msg}\n`]);
+           }
+         };
+         eventSource.onerror = () => eventSource.close();
+         return () => eventSource.close();
+      } else {
+         setStatus("Failed");
+         setLogs([`Error starting job: ${res.error}`]);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
+
+  let statusColor = "bg-gray-500";
+  if (status === "Connecting" || status === "Updating System" || status === "Pulling Images" || status.includes("Docker") || status === "Configuring" || status === "Cloning Mailcow" || status === "Starting Containers") statusColor = "bg-blue-500";
+  if (status === "Failed") statusColor = "bg-red-500";
+  if (status === "Ready") statusColor = "bg-green-500";
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-gray-400" />
-          )}
-          <Network className="h-4 w-4 text-purple-500" />
-          <div>
-            <div className="font-medium text-gray-800 text-sm">{prefix}.{domain}</div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[100px]">
-                <div 
-                  className="h-full bg-[#4DB584] rounded-full" 
-                  style={{ width: `${Math.min(100, inboxes.length * 5)}%` }}
-                />
-              </div>
-              <div className="text-xs text-gray-500 font-medium">{inboxes.length} mailboxes</div>
-            </div>
-          </div>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t border-gray-100 bg-gray-50/30 p-3">
-          <div className="flex flex-col gap-1 max-h-[300px] overflow-auto">
-            {inboxes.map((ib: any) => (
-              <div 
-                key={ib.id} 
-                className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-100/50 text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3 w-3 text-[#4DB584]" />
-                  <span className="font-medium text-gray-700">{ib.email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500">{ib.personName}</span>
-                  <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase">
-                    {ib.format}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="flex flex-col bg-black rounded-lg overflow-hidden shadow-2xl border border-gray-800">
+      <div className="bg-gray-900 px-4 py-2 flex justify-between items-center border-b border-gray-800">
+         <div className="flex items-center gap-3">
+           <Terminal className="w-4 h-4 text-gray-400" />
+           <span className="text-gray-200 font-mono text-sm">{domain.ipAddress}</span>
+         </div>
+         <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${statusColor} ${statusColor === "bg-blue-500" ? "animate-pulse" : ""}`} />
+            <span className="text-gray-400 text-xs font-mono">{status}</span>
+         </div>
+      </div>
+      <div className="p-4 h-80 overflow-y-auto font-mono text-xs text-green-400 leading-relaxed custom-scrollbar">
+         <pre className="whitespace-pre-wrap font-inherit break-all">
+           {logs.join("")}
+         </pre>
+         <div ref={bottomRef} />
+      </div>
+      {status === "Failed" && (
+         <div className="bg-gray-900 p-2 flex justify-end">
+            <Button size="sm" variant="destructive" onClick={() => { setLogs([]); setStatus("Queued"); setStarted(false); }}>Retry</Button>
+         </div>
       )}
     </div>
   );

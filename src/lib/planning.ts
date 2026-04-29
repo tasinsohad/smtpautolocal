@@ -173,7 +173,7 @@ function selectWeightedPrefix(availablePrefixes: string[]): string {
 export function planDomain(domain: string, input: PlanInput): DomainPlan {
   const { totalInboxes, prefixes, names } = input;
   if (totalInboxes < 1) {
-    return { domain, totalInboxes: 0, subdomainCount: 0, inboxes: [] };
+    return { domain, totalInboxes: 0, subdomainCount: 0, subdomainDistribution: {}, inboxes: [] };
   }
   if (prefixes.length === 0) throw new Error("No subdomain prefixes provided");
   if (names.length === 0) throw new Error("No names provided");

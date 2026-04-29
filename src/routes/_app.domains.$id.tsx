@@ -259,8 +259,8 @@ function DomainDetailsPage() {
             <Network className="h-5 w-5 text-gray-500" /> Subdomain Breakdown
           </h2>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(subdomainBreakdown).map(([prefix, count]: [string, number]) => {
-              const maxCount = Math.max(...Object.values(subdomainBreakdown));
+            {Object.entries(subdomainBreakdown as Record<string, number>).map(([prefix, count]) => {
+              const maxCount = Math.max(...Object.values(subdomainBreakdown as Record<string, number>));
               const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
               return (
                 <div key={prefix} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
@@ -324,7 +324,7 @@ function DomainDetailsPage() {
 
         {inboxes.length > 0 ? (
           <div className="flex flex-col gap-2">
-            {Object.entries(subdomainBreakdown).map(([prefix, count]: [string, number]) => {
+            {Object.entries(subdomainBreakdown as Record<string, number>).map(([prefix, count]) => {
               const subdomainInboxes = inboxes.filter((ib: any) => ib.subdomainPrefix === prefix);
               return (
                 <SubdomainInboxSection 

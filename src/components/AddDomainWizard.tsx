@@ -145,7 +145,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
   const validateMutation = useMutation({
     mutationFn: (domains: string[]) => validateDomainsAgainstZones({ data: { domains } }),
-    onSuccess: (res) => setValidationResults(res),
+    onSuccess: (res) => setValidationResults(res as any),
   });
 
   const saveTemplateMutation = useMutation({

@@ -20,7 +20,7 @@ export const setupMailcowDomain = createServerFn({ method: "POST" })
     }
 
     const inboxes = await db.select().from(plannedInboxes).where(eq(plannedInboxes.domainId, domain.id));
-    const uniqueSubdomains = Array.from(new Set(inboxes.map(i => i.subdomainFqdn)));
+    const uniqueSubdomains = Array.from(new Set(inboxes.map((i: any) => i.subdomainFqdn)));
 
     const results = [];
 
@@ -97,7 +97,7 @@ export const fetchDkimAndSync = createServerFn({ method: "POST" })
     if (!secrets?.cfApiToken) return { error: "Cloudflare token missing" };
 
     const inboxes = await db.select().from(plannedInboxes).where(eq(plannedInboxes.domainId, domain.id));
-    const uniqueSubdomains = [domain.name, ...Array.from(new Set(inboxes.map(i => i.subdomainFqdn)))];
+    const uniqueSubdomains = [domain.name, ...Array.from(new Set(inboxes.map((i: any) => i.subdomainFqdn)))];
 
     const results = [];
 
