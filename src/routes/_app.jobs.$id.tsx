@@ -1,10 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { getBatchDetails, batchPushDnsToCloudflare, checkDnsPropagation } from "@/server/domains";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getBatchDetails, batchPushDnsToCloudflare, checkDnsPropagation, deleteDomainBatch } from "@/server/domains";
 import { testSshConnection, provisionServer } from "@/server/provisioning";
-import { Globe, FolderGit2, ArrowLeft, Loader2, Mail, Send, Server, CheckCircle2, XCircle, Terminal } from "lucide-react";
+import { Globe, FolderGit2, ArrowLeft, Loader2, Mail, Send, Server, CheckCircle2, XCircle, Terminal, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_app/jobs/$id")({
@@ -17,10 +18,31 @@ function JobPipelinePage() {
   const { id } = Route.useParams();
   const [step, setStep] = useState<Step>("VIEW");
 
+  const qc = useQueryClient();
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ["batch", id],
     queryFn: () => getBatchDetails({ data: { id } }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteDomainBatch({ data: { id } }),
+    onSuccess: (res: any) => {
+      if (res.ok) {
+        toast.success("Job deleted successfully");
+        qc.invalidateQueries({ queryKey: ["domain-batches"] });
+        navigate({ to: "/jobs" });
+      } else {
+        toast.error(res.error || "Failed to delete job");
+      }
+    }
+  });
+
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this job and all its domains?")) {
+      deleteMutation.mutate();
+    }
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const batch = (data as any)?.batch;
@@ -79,9 +101,20 @@ function JobPipelinePage() {
           </div>
         </div>
         {step === "VIEW" && (
-          <Button onClick={() => setStep("PRE_FLIGHT")} className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
-            Start Provisioning Pipeline
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleDelete} 
+              disabled={deleteMutation.isPending}
+              className="h-11 px-4 rounded-2xl border-red-200 text-red-600 hover:bg-red-50"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete Job
+            </Button>
+            <Button onClick={() => setStep("PRE_FLIGHT")} className="h-11 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
+              Start Provisioning Pipeline
+            </Button>
+          </div>
         )}
       </div>
 

@@ -154,6 +154,45 @@ export const listDomainBatches = createServerFn({ method: "GET" })
     }
   });
 
+export const deleteDomainBatch = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { db, userId } = context as any;
+    if (!db) return { ok: false, error: "Database not connected" };
+
+    try {
+      // 1. Get all domains in this batch
+      const batchDomains = await db
+        .select({ id: domains.id })
+        .from(domains)
+        .where(and(eq(domains.batchId, data.id), eq(domains.userId, userId)));
+      
+      const domainIds = batchDomains.map((d: any) => d.id);
+
+      if (domainIds.length > 0) {
+        // 2. Delete all child records associated with these domains
+        await db.delete(dnsRecords).where(inArray(dnsRecords.domainId, domainIds));
+        await db.delete(plannedInboxes).where(inArray(plannedInboxes.domainId, domainIds));
+        await db.delete(domainPlans).where(inArray(domainPlans.domainId, domainIds));
+
+        // 3. Delete the domains themselves
+        await db.delete(domains).where(inArray(domains.id, domainIds));
+      }
+
+      // 4. Finally, delete the batch
+      await db
+        .delete(domainBatches)
+        .where(and(eq(domainBatches.id, data.id), eq(domainBatches.userId, userId)));
+
+      return { ok: true };
+    } catch (error) {
+      console.error("Error deleting job:", error);
+      return { ok: false, error: String(error) };
+    }
+  });
+
 export const getDomainDetails = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))

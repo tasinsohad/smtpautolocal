@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { listDomainBatches, listDomains } from "@/server/domains";
-import { Loader2, Globe, FolderGit2, Plus } from "lucide-react";
+import { listDomainBatches, listDomains, deleteDomainBatch } from "@/server/domains";
+import { Loader2, Globe, FolderGit2, Plus, Trash2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { toast } from "sonner";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 import { AddDomainWizard } from "@/components/AddDomainWizard";
 
@@ -58,17 +60,49 @@ function JobsPage() {
 }
 
 function BatchCard({ batch }: { batch: any }) {
+  const qc = useQueryClient();
   const { data: domains = [] } = useQuery({
     queryKey: ["domains", batch.id],
     queryFn: () => listDomains({ data: { batchId: batch.id } }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteDomainBatch({ data: { id: batch.id } }),
+    onSuccess: (res: any) => {
+      if (res.ok) {
+        toast.success("Job deleted successfully");
+        qc.invalidateQueries({ queryKey: ["domain-batches"] });
+      } else {
+        toast.error(res.error || "Failed to delete job");
+      }
+    }
+  });
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this job and all its domains?")) {
+      deleteMutation.mutate();
+    }
+  };
+
   return (
     <Link
       to="/jobs/$id"
       params={{ id: batch.id }}
-      className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all"
+      className="rounded-3xl bg-white p-6 ring-1 ring-black/5 shadow-sm flex flex-col gap-3 hover:ring-[#4DB584]/40 hover:shadow-md transition-all group relative"
     >
+      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-full"
+          onClick={handleDelete}
+          disabled={deleteMutation.isPending}
+        >
+          {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+        </Button>
+      </div>
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-100">
           <FolderGit2 className="h-5 w-5 text-[#4DB584]" />
