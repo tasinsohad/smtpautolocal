@@ -346,8 +346,11 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const handleNext = () => {
     if (step === 0) {
       if (selectedTemplateId && selectedTemplateId !== "new") {
-        const template = templates.find((t: any) => t.id === selectedTemplateId);
-        if (template) applyTemplate(template);
+        const templateArray = Array.isArray(templates) ? templates : [];
+        const template = templateArray.find((t: any) => t.id === selectedTemplateId);
+        if (template) {
+          applyTemplate(template);
+        }
       }
       setStep(1);
     } else if (step === 1) {
