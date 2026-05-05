@@ -40,7 +40,7 @@ function DomainsPage() {
   const { data: domains = [], isLoading } = useQuery({
     queryKey: ["domains", batchFilter],
     queryFn: () =>
-      listDomains({ data: batchFilter !== "all" ? { batchId: batchFilter } : undefined }),
+      listDomains({ data: batchFilter !== "all" ? { batchId: batchFilter } : {} }),
   });
 
   const deleteMutation = useMutation({

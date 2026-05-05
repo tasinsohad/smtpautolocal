@@ -229,7 +229,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         onOpenChange(false);
         resetForm();
 
-        qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains() }).then(
+        qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains({ data: {} }) }).then(
           (domains: any) => {
             if (domains && domains.length > 0) {
               navigate({ to: "/domains/$id", params: { id: domains[0].id } });

@@ -90,7 +90,7 @@ const validateDomainsSchema = z.object({
 
 const listDomainsSchema = z.object({
   batchId: z.string().uuid().optional(),
-});
+}).optional().default({});
 
 const getDomainSchema = z.object({
   id: z.string().uuid(),
