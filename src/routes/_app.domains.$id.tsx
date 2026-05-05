@@ -3,7 +3,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getDomainDetails, pushDnsToCloudflare } from "@/server/domains";
 import { provisionServer } from "@/server/provisioning";
 import { setupMailcowDomain, fetchDkimAndSync } from "@/server/mailcow";
-import { Globe, Server, AlertCircle, Loader2, ArrowLeft, Send, Zap, Mail, ShieldCheck, ChevronDown, ChevronRight, Network, Key } from "lucide-react";
+import {
+  Globe,
+  Server,
+  AlertCircle,
+  Loader2,
+  ArrowLeft,
+  Send,
+  Zap,
+  Mail,
+  ShieldCheck,
+  ChevronDown,
+  ChevronRight,
+  Network,
+  Key,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -73,19 +87,19 @@ function DomainDetailsPage() {
   const runFullAutomation = async () => {
     try {
       toast.info("Starting full automation sequence...");
-      
+
       toast.loading("Step 1: Pushing DNS...", { id: "auto" });
       await pushDnsMutation.mutateAsync();
-      
+
       toast.loading("Step 2: Provisioning VPS...", { id: "auto" });
       await provisionMutation.mutateAsync();
-      
+
       toast.loading("Step 3: Setting up Mailcow...", { id: "auto" });
       await setupMailcowMutation.mutateAsync();
-      
+
       toast.loading("Step 4: Syncing DKIM...", { id: "auto" });
       await syncDkimMutation.mutateAsync();
-      
+
       toast.success("Full automation completed successfully!", { id: "auto" });
     } catch (err) {
       toast.error("Automation failed: " + String(err), { id: "auto" });
@@ -94,20 +108,34 @@ function DomainDetailsPage() {
 
   const exportCsv = () => {
     if (!inboxes.length) return;
-    const headers = ["Domain", "Subdomain Prefix", "Subdomain FQDN", "Email Address", "Local Part", "Person Name", "Format", "IP Address", "SSH User"];
+    const headers = [
+      "Domain",
+      "Subdomain Prefix",
+      "Subdomain FQDN",
+      "Email Address",
+      "Local Part",
+      "Full Name",
+      "First Name",
+      "Last Name",
+      "Format",
+      "IP Address",
+      "SSH User",
+    ];
     const rows = inboxes.map((ib: any) => [
       domain.name,
       ib.subdomainPrefix,
       ib.subdomainFqdn,
       ib.email,
       ib.localPart,
-      ib.personName,
+      ib.fullName || "",
+      ib.firstName || "",
+      ib.lastName || "",
       ib.format,
       domain.ipAddress || "",
-      domain.sshUser || ""
+      domain.sshUser || "",
     ]);
-    
-    const csvContent = [headers, ...rows].map(r => r.join(",")).join("\n");
+
+    const csvContent = [headers, ...rows].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -139,7 +167,11 @@ function DomainDetailsPage() {
     );
   }
 
-  const isAnyPending = pushDnsMutation.isPending || provisionMutation.isPending || setupMailcowMutation.isPending || syncDkimMutation.isPending;
+  const isAnyPending =
+    pushDnsMutation.isPending ||
+    provisionMutation.isPending ||
+    setupMailcowMutation.isPending ||
+    syncDkimMutation.isPending;
 
   return (
     <div className="flex flex-col gap-6 p-8">
@@ -153,7 +185,9 @@ function DomainDetailsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{domain.name}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${domain.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+              <span
+                className={`px-2 py-0.5 rounded-md text-xs font-bold ${domain.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+              >
                 {domain.status.toUpperCase()}
               </span>
             </div>
@@ -178,7 +212,11 @@ function DomainDetailsPage() {
               disabled={pushDnsMutation.isPending}
               className="rounded-xl h-10 gap-2 bg-blue-500 hover:bg-blue-600 text-white"
             >
-              {pushDnsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {pushDnsMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
               Push DNS
             </Button>
             <Button
@@ -186,7 +224,11 @@ function DomainDetailsPage() {
               disabled={provisionMutation.isPending}
               className="rounded-xl h-10 gap-2 bg-purple-500 hover:bg-purple-600 text-white"
             >
-              {provisionMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+              {provisionMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
               Provision
             </Button>
             <Button
@@ -194,7 +236,11 @@ function DomainDetailsPage() {
               disabled={setupMailcowMutation.isPending}
               className="rounded-xl h-10 gap-2 bg-[#4DB584] hover:bg-[#3da070] text-white"
             >
-              {setupMailcowMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+              {setupMailcowMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
               Setup Mailcow
             </Button>
             <Button
@@ -202,7 +248,11 @@ function DomainDetailsPage() {
               disabled={syncDkimMutation.isPending}
               className="rounded-xl h-10 gap-2 bg-amber-500 hover:bg-amber-600 text-white"
             >
-              {syncDkimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {syncDkimMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
               Sync DKIM
             </Button>
           </div>
@@ -211,7 +261,9 @@ function DomainDetailsPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Inboxes</div>
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+            Total Inboxes
+          </div>
           <div className="text-3xl font-black text-[#4DB584]">{plan?.totalInboxes || 0}</div>
           <div className="text-[10px] text-gray-500">Planned across all subdomains</div>
         </div>
@@ -221,7 +273,9 @@ function DomainDetailsPage() {
           <div className="text-[10px] text-gray-500">Unique routing prefixes</div>
         </div>
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
-          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">Avg Per Subdomain</div>
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+            Avg Per Subdomain
+          </div>
           <div className="text-3xl font-black text-purple-500">
             {plan?.subdomainCount ? (plan.totalInboxes / plan.subdomainCount).toFixed(1) : 0}
           </div>
@@ -260,15 +314,20 @@ function DomainDetailsPage() {
           </h2>
           <div className="flex flex-wrap gap-2">
             {Object.entries(subdomainBreakdown as Record<string, number>).map(([prefix, count]) => {
-              const maxCount = Math.max(...Object.values(subdomainBreakdown as Record<string, number>));
+              const maxCount = Math.max(
+                ...Object.values(subdomainBreakdown as Record<string, number>),
+              );
               const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
               return (
-                <div key={prefix} className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
+                <div
+                  key={prefix}
+                  className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100"
+                >
                   <div className="flex flex-col gap-1">
                     <span className="text-xs font-mono font-bold text-gray-700">{prefix}</span>
                     <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#4DB584] rounded-full" 
+                      <div
+                        className="h-full bg-[#4DB584] rounded-full"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
@@ -293,11 +352,15 @@ function DomainDetailsPage() {
                   key={record.id}
                   className="flex items-center gap-2 rounded-xl bg-slate-50 px-4 py-2 border border-slate-100"
                 >
-                  <div className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded uppercase w-10 text-center">{record.type}</div>
+                  <div className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded uppercase w-10 text-center">
+                    {record.type}
+                  </div>
                   <div className="font-mono text-[10px] text-slate-700 truncate flex-1">
                     {record.name === "@" ? domain.name : `${record.name}.${domain.name}`}
                   </div>
-                  <div className="text-[9px] text-slate-400 truncate max-w-[80px] font-mono">{record.content}</div>
+                  <div className="text-[9px] text-slate-400 truncate max-w-[80px] font-mono">
+                    {record.content}
+                  </div>
                 </div>
               ))}
             </div>
@@ -327,11 +390,11 @@ function DomainDetailsPage() {
             {Object.entries(subdomainBreakdown as Record<string, number>).map(([prefix, count]) => {
               const subdomainInboxes = inboxes.filter((ib: any) => ib.subdomainPrefix === prefix);
               return (
-                <SubdomainInboxSection 
-                  key={prefix} 
-                  prefix={prefix} 
-                  domain={domain.name} 
-                  inboxes={subdomainInboxes} 
+                <SubdomainInboxSection
+                  key={prefix}
+                  prefix={prefix}
+                  domain={domain.name}
+                  inboxes={subdomainInboxes}
                 />
               );
             })}
@@ -346,7 +409,15 @@ function DomainDetailsPage() {
   );
 }
 
-function SubdomainInboxSection({ prefix, domain, inboxes }: { prefix: string; domain: string; inboxes: any[] }) {
+function SubdomainInboxSection({
+  prefix,
+  domain,
+  inboxes,
+}: {
+  prefix: string;
+  domain: string;
+  inboxes: any[];
+}) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -363,14 +434,16 @@ function SubdomainInboxSection({ prefix, domain, inboxes }: { prefix: string; do
           )}
           <Network className="h-5 w-5 text-purple-500" />
           <div>
-            <div className="font-semibold text-gray-900">{prefix}.{domain}</div>
+            <div className="font-semibold text-gray-900">
+              {prefix}.{domain}
+            </div>
             <div className="text-xs text-gray-500">{inboxes.length} mailboxes</div>
           </div>
         </div>
         <div className="flex -space-x-2">
           {inboxes.slice(0, 4).map((ib: any, i: number) => (
-            <div 
-              key={ib.id} 
+            <div
+              key={ib.id}
               className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-[10px] font-bold text-blue-600"
               style={{ zIndex: 4 - i }}
               title={ib.email}
