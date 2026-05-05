@@ -155,9 +155,12 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     queryFn: () => listServers(),
   });
 
-  const { data: templates = [] } = useQuery({
+  const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ["job-templates"],
-    queryFn: () => listJobTemplates(),
+    queryFn: async () => {
+      const result = await listJobTemplates();
+      return Array.isArray(result) ? result : [];
+    },
   });
 
   const validateMutation = useMutation({
@@ -166,20 +169,33 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   });
 
   const saveTemplateMutation = useMutation({
-    mutationFn: (data: { name: string; subdomainPrefixes: string[]; personNames: string[] }) =>
-      saveJobTemplate({ data }),
+    mutationFn: async (data: {
+      name: string;
+      subdomainPrefixes: string[];
+      personNames: string[];
+    }) => {
+      try {
+        return await saveJobTemplate({ data });
+      } catch (err) {
+        console.error("Save template error:", err);
+        return { error: String(err) };
+      }
+    },
     onSuccess: (res: any) => {
-      if (res.error) {
+      if (res?.error) {
         toast.error(res.error);
-      } else {
+      } else if (res?.id) {
         toast.success("Template saved!");
         qc.invalidateQueries({ queryKey: ["job-templates"] });
         setSavingTemplate(false);
         setNewTemplateName("");
-        if (res.id) {
-          setSelectedTemplateId(res.id);
-        }
+        setSelectedTemplateId(res.id);
+      } else {
+        toast.error("Failed to save template");
       }
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to save template");
     },
   });
 
