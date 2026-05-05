@@ -230,11 +230,37 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   };
 
   const applyTemplate = (template: any) => {
+    // Handle subdomainPrefixes - could be string (JSON) or array
     if (template.subdomainPrefixes) {
-      setPrefixesText(template.subdomainPrefixes.join("\n"));
+      let prefixes: string[] = [];
+      if (typeof template.subdomainPrefixes === "string") {
+        try {
+          prefixes = JSON.parse(template.subdomainPrefixes);
+        } catch {
+          prefixes = [];
+        }
+      } else if (Array.isArray(template.subdomainPrefixes)) {
+        prefixes = template.subdomainPrefixes;
+      }
+      if (Array.isArray(prefixes)) {
+        setPrefixesText(prefixes.join("\n"));
+      }
     }
+    // Handle personNames - could be string (JSON) or array
     if (template.personNames) {
-      setNamesText(template.personNames.join("\n"));
+      let names: string[] = [];
+      if (typeof template.personNames === "string") {
+        try {
+          names = JSON.parse(template.personNames);
+        } catch {
+          names = [];
+        }
+      } else if (Array.isArray(template.personNames)) {
+        names = template.personNames;
+      }
+      if (Array.isArray(names)) {
+        setNamesText(names.join("\n"));
+      }
     }
     setSelectedTemplateId(template.id);
     toast.success(`Applied template: ${template.name}`);
