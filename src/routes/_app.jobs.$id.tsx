@@ -64,13 +64,16 @@ function JobPipelinePage() {
 
   const handleExportCsv = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Domain,Subdomain,Email,Name\n";
+    csvContent += "Domain,Subdomain,Email,Full Name,Server IP,Webmail URL,Mailcow Hostname\n";
 
     domains.forEach((d: any) => {
       const dInboxes = inboxes.filter((i: any) => i.domainId === d.id);
       dInboxes.forEach((ib: any) => {
         const name = ib.fullName || ib.personName || `${ib.firstName || ""} ${ib.lastName || ""}`.trim() || "";
-        csvContent += `${d.name},${ib.subdomainFqdn},${ib.email},${name}\n`;
+        const ip = d.ipAddress || "";
+        const mailcowHost = d.mailcowHostname || `mail.${d.name}`;
+        const webmailUrl = `https://${mailcowHost}`;
+        csvContent += `${d.name},${ib.subdomainFqdn},${ib.email},${name},${ip},${webmailUrl},${mailcowHost}\n`;
       });
     });
 
