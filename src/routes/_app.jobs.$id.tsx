@@ -19,6 +19,7 @@ import {
   XCircle,
   Terminal,
   Trash2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useRef } from "react";
@@ -59,6 +60,27 @@ function JobPipelinePage() {
     if (confirm("Are you sure you want to delete this job and all its domains?")) {
       deleteMutation.mutate();
     }
+  };
+
+  const handleExportCsv = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Domain,Subdomain,Email,Name\n";
+
+    domains.forEach((d: any) => {
+      const dInboxes = inboxes.filter((i: any) => i.domainId === d.id);
+      dInboxes.forEach((ib: any) => {
+        const name = ib.fullName || ib.personName || `${ib.firstName || ""} ${ib.lastName || ""}`.trim() || "";
+        csvContent += `${d.name},${ib.subdomainFqdn},${ib.email},${name}\n`;
+      });
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `job_${batch.name}_export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,6 +149,14 @@ function JobPipelinePage() {
         </div>
         {step === "VIEW" && (
           <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              className="h-11 px-4 rounded-2xl border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
             <Button
               variant="outline"
               onClick={handleDelete}
