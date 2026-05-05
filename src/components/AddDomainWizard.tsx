@@ -452,7 +452,17 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     Select a saved template or continue with defaults
                   </p>
                 </div>
-                <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={(id) => {
+                    setSelectedTemplateId(id);
+                    if (id && id !== "new") {
+                      const templateArray = Array.isArray(templates) ? templates : [];
+                      const template = templateArray.find((t: any) => t.id === id);
+                      if (template) applyTemplate(template);
+                    }
+                  }}
+                >
                   <SelectTrigger className="w-48 rounded-xl">
                     <SelectValue placeholder="Select template..." />
                   </SelectTrigger>
