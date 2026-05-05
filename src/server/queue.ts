@@ -6,15 +6,54 @@ import { NodeSSH } from "node-ssh";
 // Assuming default local Redis port 6379. Update if needed.
 const connection = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
+// Sanitize input for shell commands - escape special characters
+function sanitizeShellInput(input: string | undefined): string {
+  if (!input) return "";
+  // Remove or escape potentially dangerous characters
+  return input.replace(/[;`$|&\n\r]/g, "").trim();
+}
+
+// Validate domain name format
+function isValidDomainName(domain: string): boolean {
+  const domainRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,}$/;
+  return domainRegex.test(domain);
+}
+
+// Validate IP address or hostname
+function isValidHost(input: string): boolean {
+  // IPv4 regex
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  // Hostname regex (simplified)
+  const hostnameRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$/;
+  return ipv4Regex.test(input) || hostnameRegex.test(input);
+}
+
 export const serverSetupQueue = new Queue("server-setup", { connection });
 
-export async function addServerSetupJob(domainId: string, ipAddress: string, sshUser: string, sshPassword?: string | null, domainName?: string) {
+export async function addServerSetupJob(
+  domainId: string,
+  ipAddress: string,
+  sshUser: string,
+  sshPassword?: string | null,
+  domainName?: string,
+) {
+  // Validate inputs before queuing
+  if (!isValidHost(ipAddress)) {
+    throw new Error("Invalid IP address or hostname");
+  }
+  if (sshUser && !/^[a-zA-Z0-9_-]+$/.test(sshUser)) {
+    throw new Error("Invalid SSH username");
+  }
+  if (domainName && !isValidDomainName(domainName)) {
+    throw new Error("Invalid domain name");
+  }
+
   return await serverSetupQueue.add("setup", {
     domainId,
-    ipAddress,
-    sshUser,
+    ipAddress: sanitizeShellInput(ipAddress),
+    sshUser: sanitizeShellInput(sshUser),
     sshPassword,
-    domainName,
+    domainName: sanitizeShellInput(domainName),
   });
 }
 
@@ -54,15 +93,36 @@ if (!globalForWorker.worker) {
           let mailcowApiFetched = false;
 
           const steps = [
-            { cmd: "sudo apt update && sudo apt upgrade -y", status: "Updating System", expect: /root@.*:/ }, // This is an approximation
-            { cmd: "curl -sSL https://get.docker.com/ | CHANNEL=stable sh", status: "Installing Docker", expect: /root@.*:/ },
-            { cmd: "systemctl enable --now docker", status: "Installing Docker", expect: /root@.*:/ },
+            {
+              cmd: "sudo apt update && sudo apt upgrade -y",
+              status: "Updating System",
+              expect: /root@.*:/,
+            }, // This is an approximation
+            {
+              cmd: "curl -sSL https://get.docker.com/ | CHANNEL=stable sh",
+              status: "Installing Docker",
+              expect: /root@.*:/,
+            },
+            {
+              cmd: "systemctl enable --now docker",
+              status: "Installing Docker",
+              expect: /root@.*:/,
+            },
             { cmd: "su", status: "Configuring", expect: /root@.*:/ },
             { cmd: "umask 022", status: "Configuring", expect: /root@.*:/ },
             { cmd: "cd /opt", status: "Cloning Mailcow", expect: /root@.*:/ },
-            { cmd: "git clone https://github.com/mailcow/mailcow-dockerized || true", status: "Cloning Mailcow", expect: /root@.*:/ },
+            {
+              cmd: "git clone https://github.com/mailcow/mailcow-dockerized || true",
+              status: "Cloning Mailcow",
+              expect: /root@.*:/,
+            },
             { cmd: "cd mailcow-dockerized", status: "Configuring", expect: /root@.*:/ },
-            { cmd: "./generate_config.sh", status: "Configuring", expect: /Mailcow hostname/i, isInteractive: true },
+            {
+              cmd: "./generate_config.sh",
+              status: "Configuring",
+              expect: /Mailcow hostname/i,
+              isInteractive: true,
+            },
             { cmd: "docker compose pull", status: "Pulling Images", expect: /root@.*:/ },
             { cmd: "docker compose up -d", status: "Starting Containers", expect: /root@.*:/ },
           ];
@@ -79,87 +139,95 @@ if (!globalForWorker.worker) {
 
             const step = steps[currentStep];
             log(`Running: ${step.cmd}`, step.status);
-            
+
             if (step.isInteractive) {
-               shell.write(`${step.cmd}\n`);
+              shell.write(`${step.cmd}\n`);
             } else {
-               // Add a completion token to easily detect when the command finishes
-               shell.write(`${step.cmd} && echo "__CMD_DONE__" || echo "__CMD_FAIL__"\n`);
+              // Add a completion token to easily detect when the command finishes
+              shell.write(`${step.cmd} && echo "__CMD_DONE__" || echo "__CMD_FAIL__"\n`);
             }
           };
 
           const checkMailcowUi = async () => {
-             log("Waiting for Mailcow UI on port 443...", "Starting Containers");
-             let retries = 30; // 5 mins max
-             const poll = setInterval(async () => {
-                if (retries <= 0) {
-                   clearInterval(poll);
-                   log("Mailcow UI did not come up in time.", "Failed");
-                   reject(new Error("Timeout waiting for Mailcow"));
-                   return;
+            log("Waiting for Mailcow UI on port 443...", "Starting Containers");
+            let retries = 60; // 10 mins max
+            const poll = setInterval(async () => {
+              if (retries <= 0) {
+                clearInterval(poll);
+                log("Mailcow UI did not come up in time.", "Failed");
+                reject(new Error("Timeout waiting for Mailcow"));
+                return;
+              }
+              try {
+                // A basic fetch to see if it responds (ignoring cert errors)
+                const res = await fetch(`https://${ipAddress}/api/v1/get/domain/all`, {
+                  headers: { "X-API-Key": "dummy" }, // Just testing connection, expecting 401
+                });
+                if (res.status === 401 || res.ok) {
+                  clearInterval(poll);
+                  log("Mailcow web UI responded.", "Ready");
+
+                  // Use a safer approach - don't cat sensitive files to logs
+                  log("Mailcow installation completed successfully.", "Ready");
+
+                  setTimeout(() => {
+                    shell.close();
+                    resolve();
+                  }, 2000);
                 }
-                try {
-                   // A basic fetch to see if it responds (ignoring cert errors)
-                   const res = await fetch(`https://${ipAddress}/api/v1/get/domain/all`, {
-                     headers: { "X-API-Key": "dummy" } // Just testing connection, expecting 401
-                   });
-                   if (res.status === 401 || res.ok) {
-                      clearInterval(poll);
-                      log("Mailcow web UI responded.", "Ready");
-                      log("✅ API Key Retrieved (simulated)", "Ready");
-                      
-                      // In a real scenario, you'd use admin creds to get the key from the DB or API here.
-                      // Since we don't have the generated admin pass easily accessible without looking at mailcow.conf
-                      // we will simulate this part per instructions or implement actual DB read.
-                      
-                      shell.write('cat mailcow.conf | grep MAILCOW_API_KEY || echo "No key found"\n');
-                      
-                      setTimeout(() => {
-                          shell.close();
-                          resolve();
-                      }, 2000);
-                   }
-                } catch (e) {
-                   // Expected to fail until nginx is up
-                }
-                retries--;
-             }, 10000);
+              } catch (e) {
+                // Expected to fail until nginx is up
+              }
+              retries--;
+            }, 10000);
           };
 
           shell.on("data", (data: Buffer) => {
             const str = data.toString();
             outputBuffer += str;
-            // stream output to frontend
-            pub.publish(channel, JSON.stringify({ chunk: str }));
+            // stream output to frontend - limit chunk size for safety
+            const chunk = str.length > 10000 ? str.substring(0, 10000) + "... (truncated)" : str;
+            pub.publish(channel, JSON.stringify({ chunk }));
 
             // Check for completion tokens
             if (outputBuffer.includes("__CMD_DONE__")) {
-               outputBuffer = outputBuffer.replace("__CMD_DONE__", "");
-               currentStep++;
-               runNext();
+              outputBuffer = outputBuffer.replace("__CMD_DONE__", "");
+              currentStep++;
+              runNext();
             } else if (outputBuffer.includes("__CMD_FAIL__")) {
-               log(`Command failed at step ${currentStep}: ${steps[currentStep].cmd}`, "Failed");
-               shell.close();
-               reject(new Error("Command execution failed"));
+              log(`Command failed at step ${currentStep}: ${steps[currentStep].cmd}`, "Failed");
+              shell.close();
+              reject(new Error("Command execution failed"));
             }
 
             // Handle interactive prompt
             if (currentStep < steps.length && steps[currentStep].isInteractive) {
-                if (outputBuffer.toLowerCase().includes("mailcow hostname") || outputBuffer.includes("FQDN")) {
-                   log(`Answering prompt with: mail.${domainName}`, "Configuring");
-                   shell.write(`mail.${domainName}\n`);
-                   // The script finishes after this, wait for the prompt to return
-                   steps[currentStep].isInteractive = false; // Prevent re-triggering
-                   // We must manually trigger next step when prompt returns. Let's just wait a bit or look for prompt.
-                   // generate_config.sh outputs "Generating RSA keys..." etc, then exits.
-                   // We will write a token immediately after.
-                   shell.write(`echo "__CMD_DONE__"\n`);
+              if (
+                outputBuffer.toLowerCase().includes("mailcow hostname") ||
+                outputBuffer.includes("FQDN")
+              ) {
+                // Validate domainName before using it
+                if (!domainName || !isValidDomainName(domainName)) {
+                  log(`Invalid domain name: ${domainName}`, "Failed");
+                  shell.close();
+                  reject(new Error("Invalid domain name for Mailcow configuration"));
+                  return;
                 }
+                const mailcowHostname = `mail.${domainName}`;
+                log(`Answering prompt with: ${mailcowHostname}`, "Configuring");
+                shell.write(`${mailcowHostname}\n`);
+                // The script finishes after this, wait for the prompt to return
+                steps[currentStep].isInteractive = false; // Prevent re-triggering
+                // We must manually trigger next step when prompt returns. Let's just wait a bit or look for prompt.
+                // generate_config.sh outputs "Generating RSA keys..." etc, then exits.
+                // We will write a token immediately after.
+                shell.write(`echo "__CMD_DONE__"\n`);
+              }
             }
           });
 
           shell.on("close", () => {
-             pub.disconnect();
+            pub.disconnect();
           });
 
           // Start
@@ -173,6 +241,6 @@ if (!globalForWorker.worker) {
         ssh.dispose();
       }
     },
-    { connection, concurrency: 5 }
+    { connection, concurrency: 5 },
   );
 }

@@ -4,11 +4,30 @@ import { z } from "zod";
 import { userSecrets, cloudflareZones } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
+// Validation schemas
+const saveSecretsSchema = z.object({
+  cfApiToken: z
+    .string()
+    .min(1, "API token cannot be empty")
+    .max(255, "API token too long")
+    .optional()
+    .nullable(),
+  cfAccountId: z
+    .string()
+    .min(1, "Account ID cannot be empty")
+    .max(255, "Account ID too long")
+    .optional()
+    .nullable(),
+});
+
+const verifyCfTokenSchema = z.object({
+  token: z.string().min(1, "Token cannot be empty").max(255, "Token too long"),
+});
+
 export const getSecrets = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
+    const { db, userId } = context as { db: any; userId: string };
     const row = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -17,17 +36,9 @@ export const getSecrets = createServerFn({ method: "GET" })
 
 export const saveSecrets = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        cfApiToken: z.string().optional().nullable(),
-        cfAccountId: z.string().optional().nullable(),
-      })
-      .parse(d),
-  )
+  .inputValidator((d: unknown) => saveSecretsSchema.parse(d))
   .handler(async ({ data, context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
+    const { db, userId } = context as { db: any; userId: string };
     const existing = await db.query.userSecrets.findFirst({
       where: eq(userSecrets.userId, userId),
     });
@@ -41,7 +52,7 @@ export const saveSecrets = createServerFn({ method: "POST" })
 
 export const verifyCfToken = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) => z.object({ token: z.string() }).parse(d))
+  .inputValidator((d: unknown) => verifyCfTokenSchema.parse(d))
   .handler(async ({ data }) => {
     try {
       const res = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
@@ -51,7 +62,10 @@ export const verifyCfToken = createServerFn({ method: "POST" })
         },
       });
       const json = (await res.json()) as any;
-      return { valid: json.success && json.result?.status === "active", error: json.errors?.[0]?.message };
+      return {
+        valid: json.success && json.result?.status === "active",
+        error: json.errors?.[0]?.message,
+      };
     } catch (error) {
       return { valid: false, error: String(error) };
     }
@@ -60,8 +74,7 @@ export const verifyCfToken = createServerFn({ method: "POST" })
 export const syncCfZones = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
+    const { db, userId } = context as { db: any; userId: string };
     if (!db) return { error: "Database not connected" };
 
     const secrets = await db.query.userSecrets.findFirst({
@@ -87,7 +100,6 @@ export const syncCfZones = createServerFn({ method: "POST" })
       }));
 
       if (zonesData.length > 0) {
-        // Clear old cache and insert new
         await db.delete(cloudflareZones).where(eq(cloudflareZones.userId, userId));
         await db.insert(cloudflareZones).values(zonesData);
       }
@@ -101,12 +113,14 @@ export const syncCfZones = createServerFn({ method: "POST" })
 export const getCfZones = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { db, userId } = context as any;
+    const { db, userId } = context as { db: any; userId: string };
     if (!db) return [];
 
     try {
-      const cached = await db.select().from(cloudflareZones).where(eq(cloudflareZones.userId, userId));
+      const cached = await db
+        .select()
+        .from(cloudflareZones)
+        .where(eq(cloudflareZones.userId, userId));
       return cached.map((z: any) => ({ id: z.zoneId, name: z.name, status: z.status }));
     } catch {
       return [];

@@ -398,14 +398,20 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
     addMutation.mutate({
       batchName: batchName || `Batch ${new Date().toLocaleDateString()}`,
-      templateId: selectedTemplateId || "default",
-      rows: domainRows.map((row) => ({
-        ...row,
-        inboxCount: row.plannedInboxCount || 0,
+      ...(selectedTemplateId && selectedTemplateId !== "new"
+        ? { templateId: selectedTemplateId }
+        : {}),
+      domains: domainRows.map((row) => ({
+        domain: row.domain,
+        ipAddress: row.ipAddress,
+        sshUser: row.sshUser,
+        sshPassword: row.sshPassword,
+        plannedSubdomainCount: row.plannedSubdomainCount,
+        plannedInboxCount: row.plannedInboxCount || 0,
+        plannedDistribution: row.plannedDistribution,
       })),
       prefixes,
       names,
-      plannedResults,
     });
   };
 

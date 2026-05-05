@@ -75,7 +75,7 @@ function BatchCard({ batch }: { batch: any }) {
       } else {
         toast.error(res.error || "Failed to delete job");
       }
-    }
+    },
   });
 
   const handleDelete = (e: React.MouseEvent) => {
@@ -100,7 +100,11 @@ function BatchCard({ batch }: { batch: any }) {
           onClick={handleDelete}
           disabled={deleteMutation.isPending}
         >
-          {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {deleteMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
         </Button>
       </div>
       <div className="flex items-center gap-3">

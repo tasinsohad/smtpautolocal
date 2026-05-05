@@ -1,15 +1,61 @@
-import { defineEventHandler, getQuery } from "h3";
+import { defineEventHandler, getQuery, getHeader } from "h3";
 import Redis from "ioredis";
+import { createClient } from "@supabase/supabase-js";
+import { users, domains } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Reuse a single connection or create one for SSE
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const domainId = query.domainId as string;
 
   if (!domainId) {
     return new Response("Missing domainId", { status: 400 });
+  }
+
+  // Check authentication
+  const authHeader = getHeader(event, "authorization");
+  const token = authHeader?.replace("Bearer ", "");
+
+  if (!token) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Verify the token with Supabase
+  const {
+    data: { user: supabaseUser },
+    error,
+  } = await supabase.auth.getUser(token);
+
+  if (error || !supabaseUser) {
+    return new Response("Invalid token", { status: 401 });
+  }
+
+  // Get database connection and verify user owns this domain
+  const db = getDb();
+  const user = await db.query.users.findFirst({
+    where: eq(users.email, supabaseUser.email!),
+  });
+
+  if (!user) {
+    return new Response("User not found", { status: 403 });
+  }
+
+  // Verify the domain belongs to the user
+  const domain = await db.query.domains.findFirst({
+    where: eq(domains.id, domainId),
+  });
+
+  if (!domain || domain.userId !== user.id) {
+    return new Response("Forbidden", { status: 403 });
   }
 
   const res = (event as any).node?.res;
@@ -19,7 +65,7 @@ export default defineEventHandler((event) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
-  if (typeof res.flushHeaders === 'function') {
+  if (typeof res.flushHeaders === "function") {
     res.flushHeaders();
   }
 

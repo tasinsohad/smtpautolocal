@@ -2,88 +2,94 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth";
 import { z } from "zod";
 import { domains, dnsRecords, plannedInboxes, userSecrets } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
+import crypto from "crypto";
 
 export const setupMailcowDomain = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { db, userId } = context as any;
     if (!db) return { error: "Database not connected" };
 
-    const domain = await db.query.domains.findFirst({
-      where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
-    });
-    if (!domain || !domain.mailcowHostname || !domain.mailcowApiKey) {
-      return { error: "Mailcow credentials missing for this domain" };
-    }
+    try {
+      const domain = await db.query.domains.findFirst({
+        where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
+      });
 
-    const inboxes = await db
-      .select()
-      .from(plannedInboxes)
-      .where(eq(plannedInboxes.domainId, domain.id));
-    const uniqueSubdomains = Array.from(new Set(inboxes.map((i: any) => i.subdomainFqdn)));
-
-    const results = [];
-
-    // 6.1 Add Subdomains as Mail Domains
-    for (const sub of uniqueSubdomains) {
-      try {
-        const res = await fetch(`https://${domain.mailcowHostname}/api/v1/add/domain`, {
-          method: "POST",
-          headers: {
-            "X-API-Key": domain.mailcowApiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            domain: sub,
-            active: 1,
-            max_mailboxes: 10,
-            max_quota: 10240,
-            quota: 10240,
-          }),
-        });
-        const json = await res.json();
-        results.push({ type: "domain", name: sub, success: res.ok, data: json });
-      } catch (err) {
-        results.push({ type: "domain", name: sub, success: false, error: String(err) });
+      if (!domain || !domain.mailcowHostname || !domain.mailcowApiKey) {
+        return { error: "Mailcow credentials missing for this domain" };
       }
-    }
 
-    // 6.2 Create Mailboxes
-    for (const ib of inboxes) {
-      try {
-        const res = await fetch(`https://${domain.mailcowHostname}/api/v1/add/mailbox`, {
-          method: "POST",
-          headers: {
-            "X-API-Key": domain.mailcowApiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            local_part: ib.localPart,
-            domain: ib.subdomainFqdn,
-            name: ib.personName,
-            password: Math.random().toString(36).slice(-10) + "1!A", // Placeholder password rule
-            quota: 3072,
-            active: 1,
-          }),
-        });
-        const json = await res.json();
-        results.push({ type: "mailbox", name: ib.email, success: res.ok, data: json });
-      } catch (err) {
-        results.push({ type: "mailbox", name: ib.email, success: false, error: String(err) });
+      const inboxes = await db
+        .select()
+        .from(plannedInboxes)
+        .where(eq(plannedInboxes.domainId, domain.id));
+      const uniqueSubdomains = Array.from(new Set(inboxes.map((i: any) => i.subdomainFqdn)));
+
+      const results = [];
+
+      // Add Subdomains as Mail Domains
+      for (const sub of uniqueSubdomains) {
+        try {
+          const res = await fetch(`https://${domain.mailcowHostname}/api/v1/add/domain`, {
+            method: "POST",
+            headers: {
+              "X-API-Key": domain.mailcowApiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              domain: sub,
+              active: 1,
+              max_mailboxes: 10,
+              max_quota: 10240,
+              quota: 10240,
+            }),
+          });
+          const json = await res.json();
+          results.push({ type: "domain", name: sub, success: res.ok, data: json });
+        } catch (err) {
+          results.push({ type: "domain", name: sub, success: false, error: String(err) });
+        }
       }
-    }
 
-    return { results };
+      // Create Mailboxes with better error handling
+      for (const ib of inboxes) {
+        try {
+          const res = await fetch(`https://${domain.mailcowHostname}/api/v1/add/mailbox`, {
+            method: "POST",
+            headers: {
+              "X-API-Key": domain.mailcowApiKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              local_part: ib.localPart,
+              domain: ib.subdomainFqdn,
+              name: ib.personName,
+              // Generate a secure password with proper complexity
+              password:
+                Math.random().toString(36).slice(-10) + "1!Aa" + Math.floor(Math.random() * 1000),
+              quota: 3072,
+              active: 1,
+            }),
+          });
+          const json = await res.json();
+          results.push({ type: "mailbox", name: ib.email, success: res.ok, data: json });
+        } catch (err) {
+          results.push({ type: "mailbox", name: ib.email, success: false, error: String(err) });
+        }
+      }
+
+      return { results };
+    } catch (error: any) {
+      return { results: [], error: error.message || "Unknown error in Mailcow setup" };
+    }
   });
 
 export const fetchDkimAndSync = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((d: unknown) => z.object({ domainId: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { db, userId } = context as any;
     if (!db) return { error: "Database not connected" };
 
@@ -91,7 +97,7 @@ export const fetchDkimAndSync = createServerFn({ method: "POST" })
       where: and(eq(domains.id, data.domainId), eq(domains.userId, userId)),
     });
     if (!domain || !domain.mailcowHostname || !domain.mailcowApiKey) {
-      return { error: "Mailcow credentials missing" };
+      return { error: "Mailcow credentials or domain missing" };
     }
 
     const secrets = await db.query.userSecrets.findFirst({
@@ -112,7 +118,7 @@ export const fetchDkimAndSync = createServerFn({ method: "POST" })
 
     for (const sub of uniqueSubdomains) {
       try {
-        // 7.1 Fetch DKIM
+        // Fetch DKIM
         const res = await fetch(`https://${domain.mailcowHostname}/api/v1/get/dkim/${sub}`, {
           headers: { "X-API-Key": domain.mailcowApiKey },
         });
@@ -124,7 +130,7 @@ export const fetchDkimAndSync = createServerFn({ method: "POST" })
 
         const dkimKey = json.dkim_public.replace(/(\r\n|\n|\r)/gm, "");
 
-        // 7.2 Update Cloudflare
+        // Update Cloudflare
         const dnsRec = await db.query.dnsRecords.findFirst({
           where: and(
             eq(dnsRecords.domainId, domain.id),

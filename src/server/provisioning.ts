@@ -55,13 +55,13 @@ export const provisionServer = createServerFn({ method: "POST" })
     try {
       // Enqueue job via BullMQ
       const job = await addServerSetupJob(
-        domain.id, 
-        domain.server.ipAddress, 
-        domain.server.sshUser, 
-        domain.server.sshPassword, 
-        domain.name
+        domain.id,
+        domain.server.ipAddress,
+        domain.server.sshUser,
+        domain.server.sshPassword,
+        domain.name,
       );
-      
+
       await db.update(domains).set({ status: "provisioning" }).where(eq(domains.id, domain.id));
 
       return { success: true, jobId: job.id };

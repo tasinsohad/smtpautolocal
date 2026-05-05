@@ -114,12 +114,18 @@ function SettingsPage() {
                     disabled={verifyMutation.isPending || !form.cfApiToken}
                     className="rounded-xl border-gray-100"
                   >
-                    {verifyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+                    {verifyMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Verify"
+                    )}
                   </Button>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
                   {verifyStatus && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${verifyStatus.valid ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${verifyStatus.valid ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"}`}
+                    >
                       {verifyStatus.valid ? "✅ VALID" : `❌ INVALID: ${verifyStatus.error}`}
                     </span>
                   )}
@@ -161,7 +167,11 @@ function SettingsPage() {
                   disabled={syncMutation.isPending || !secrets?.cfApiToken}
                   className="rounded-xl border-gray-100 gap-2"
                 >
-                  {syncMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
+                  {syncMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Cloud className="h-4 w-4" />
+                  )}
                   Sync Zones
                 </Button>
               </div>

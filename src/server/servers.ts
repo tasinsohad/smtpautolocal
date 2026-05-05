@@ -4,6 +4,31 @@ import { z } from "zod";
 import { servers } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
+// Validation schemas
+const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+const hostnameRegex = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$/;
+
+const serverInputSchema = z.object({
+  label: z
+    .string()
+    .min(1)
+    .max(100)
+    .regex(/^[a-zA-Z0-9_\-\s]+$/, "Label contains invalid characters"),
+  hostname: z.string().min(1).max(255).regex(hostnameRegex, "Invalid hostname format"),
+  ipAddress: z
+    .string()
+    .min(1)
+    .refine(
+      (val) => ipv4Regex.test(val) || hostnameRegex.test(val),
+      "Invalid IP address or hostname",
+    ),
+  sshUser: z
+    .string()
+    .min(1)
+    .max(50)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid SSH username"),
+});
+
 export const listServers = createServerFn({ method: "GET" })
   .middleware([requireAuth])
   .handler(async ({ context }) => {
@@ -16,10 +41,7 @@ export const listServers = createServerFn({ method: "GET" })
 
     try {
       const rows = await db.select().from(servers).where(eq(servers.userId, userId));
-      return rows.map((s: any) => ({
-        ...s,
-        setupSteps: s.setupSteps ? JSON.parse(s.setupSteps) : null,
-      }));
+      return rows;
     } catch {
       return [];
     }
@@ -27,16 +49,7 @@ export const listServers = createServerFn({ method: "GET" })
 
 export const createServer = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) =>
-    z
-      .object({
-        label: z.string().min(1),
-        hostname: z.string().min(1),
-        ipAddress: z.string().min(1),
-        sshUser: z.string().default("root"),
-      })
-      .parse(d),
-  )
+  .inputValidator((d: unknown) => serverInputSchema.parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { db, userId, dbError } = context as any;
@@ -62,7 +75,7 @@ export const createServer = createServerFn({ method: "POST" })
 
 export const deleteServer = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { db, userId, dbError } = context as any;
