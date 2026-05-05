@@ -323,7 +323,9 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
             subdomainFqdn: ib.subdomainFqdn,
             localPart: ib.localPart,
             email: ib.email,
-            personName: ib.personName,
+            fullName: ib.fullName,
+            firstName: ib.firstName,
+            lastName: ib.lastName,
             format: ib.format,
             status: "planned" as const,
           }));

@@ -1,27 +1,39 @@
-import { pgTable, text, integer, timestamp, uuid, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import crypto from "crypto";
 
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const userSecrets = pgTable("user_secrets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id)
+    .unique(),
   cfApiToken: text("cf_api_token"),
   cfAccountId: text("cf_account_id"),
-  subdomainPrefixes: text("subdomain_prefixes").array(),
-  personNames: text("person_names").array(),
+  subdomainPrefixes: text("subdomain_prefixes")
+    .array()
+    .default(["mail", "contact", "hello", "team", "support", "info"]),
+  personNames: text("person_names")
+    .array()
+    .default(["Alice Johnson", "John Doe", "Marco", "Sofia Rossi"]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const servers = pgTable("servers", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
   label: text("label").notNull(),
@@ -29,40 +41,51 @@ export const servers = pgTable("servers", {
   ipAddress: text("ip_address").notNull(),
   sshUser: text("ssh_user").notNull().default("root"),
   sshPassword: text("ssh_password"),
+  sshKey: text("ssh_key"),
   status: text("status").notNull().default("configuring"),
-  setupSteps: text("setup_steps"), // JSON stored as text
+  setupSteps: jsonb("setup_steps"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const jobTemplates = pgTable("job_templates", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
   name: text("name").notNull(),
-  subdomainPrefixes: text("subdomain_prefixes").notNull().default("[]"),
-  personNames: text("person_names").notNull().default("[]"),
+  subdomainPrefixes: text("subdomain_prefixes")
+    .array()
+    .default(["mail", "contact", "hello", "team", "support", "info"]),
+  personNames: text("person_names")
+    .array()
+    .default(["Alice Johnson", "John Doe", "Marco", "Sofia Rossi"]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const domainBatches = pgTable("domain_batches", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  templateId: uuid("template_id").references(() => jobTemplates.id),
+  templateId: text("template_id").references(() => jobTemplates.id),
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const domains = pgTable("domains", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  batchId: uuid("batch_id").references(() => domainBatches.id),
-  serverId: uuid("server_id").references(() => servers.id),
-  name: text("name").notNull(),
+  batchId: text("batch_id").references(() => domainBatches.id),
+  serverId: text("server_id").references(() => servers.id),
+  name: text("name").notNull().unique(),
   status: text("status").notNull().default("pending"),
   ipAddress: text("ip_address"),
   sshUser: text("ssh_user"),
@@ -75,11 +98,13 @@ export const domains = pgTable("domains", {
 });
 
 export const dnsRecords = pgTable("dns_records", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  domainId: uuid("domain_id")
+  domainId: text("domain_id")
     .notNull()
     .references(() => domains.id),
   type: text("type").notNull(),
@@ -95,11 +120,13 @@ export const dnsRecords = pgTable("dns_records", {
 });
 
 export const domainPlans = pgTable("domain_plans", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  domainId: uuid("domain_id")
+  domainId: text("domain_id")
     .notNull()
     .references(() => domains.id),
   totalInboxes: integer("total_inboxes").notNull(),
@@ -111,29 +138,35 @@ export const domainPlans = pgTable("domain_plans", {
 });
 
 export const plannedInboxes = pgTable("planned_inboxes", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
-  domainId: uuid("domain_id")
+  domainId: text("domain_id")
     .notNull()
     .references(() => domains.id),
-  planId: uuid("plan_id")
+  planId: text("plan_id")
     .notNull()
     .references(() => domainPlans.id),
   subdomainPrefix: text("subdomain_prefix").notNull(),
   subdomainFqdn: text("subdomain_fqdn").notNull(),
   localPart: text("local_part").notNull(),
   email: text("email").notNull(),
-  personName: text("person_name"),
+  fullName: text("full_name"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
   format: text("format"),
   status: text("status").notNull().default("planned"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const cloudflareZones = pgTable("cloudflare_zones", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id")
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id")
     .notNull()
     .references(() => users.id),
   zoneId: text("zone_id").notNull(),
@@ -142,11 +175,31 @@ export const cloudflareZones = pgTable("cloudflare_zones", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    provider: text("provider").notNull(),
+    count: integer("count").notNull().default(0),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    uniqueUserProvider: [table.userId, table.provider],
+  }),
+);
+
 // Relations
 export const userRelations = relations(users, ({ many }) => ({
   domains: many(domains),
   secrets: many(userSecrets),
   zones: many(cloudflareZones),
+  rateLimits: many(rateLimits),
 }));
 
 export const domainRelations = relations(domains, ({ one, many }) => ({
@@ -157,10 +210,32 @@ export const domainRelations = relations(domains, ({ one, many }) => ({
   plan: one(domainPlans, { fields: [domains.id], references: [domainPlans.domainId] }),
 }));
 
-export const domainBatchRelations = relations(domainBatches, ({ many }) => ({
+export const domainBatchRelations = relations(domainBatches, ({ many, one }) => ({
   domains: many(domains),
+  template: one(jobTemplates, {
+    fields: [domainBatches.templateId],
+    references: [jobTemplates.id],
+  }),
 }));
 
 export const serverRelations = relations(servers, ({ many }) => ({
   domains: many(domains),
+}));
+
+export const jobTemplateRelations = relations(jobTemplates, ({ many }) => ({
+  batches: many(domainBatches),
+}));
+
+export const domainPlanRelations = relations(domainPlans, ({ many, one }) => ({
+  domain: one(domains, { fields: [domainPlans.domainId], references: [domains.id] }),
+  inboxes: many(plannedInboxes),
+}));
+
+export const plannedInboxRelations = relations(plannedInboxes, ({ one }) => ({
+  domain: one(domains, { fields: [plannedInboxes.domainId], references: [domains.id] }),
+  plan: one(domainPlans, { fields: [plannedInboxes.planId], references: [domainPlans.id] }),
+}));
+
+export const rateLimitRelations = relations(rateLimits, ({ one }) => ({
+  user: one(users, { fields: [rateLimits.userId], references: [users.id] }),
 }));

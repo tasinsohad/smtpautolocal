@@ -22,31 +22,31 @@ const FORMATS: LocalFormat[] = [
 ];
 
 const FORMAT_WEIGHTS: Record<LocalFormat, number> = {
-  "first": 20,
+  first: 20,
   "first.last": 35,
-  "firstlast": 15,
+  firstlast: 15,
   "f.last": 10,
-  "first_last": 10,
-  "firstl": 10,
+  first_last: 10,
+  firstl: 10,
 };
 
 const PREFIX_WEIGHTS: Record<string, number> = {
-  "mail": 40,
-  "web": 35,
-  "app": 25,
-  "api": 20,
-  "shop": 15,
-  "blog": 12,
-  "dev": 10,
-  "cloud": 10,
-  "portal": 8,
-  "info": 6,
-  "support": 8,
-  "news": 5,
-  "forum": 4,
-  "cdn": 3,
-  "static": 3,
-  "assets": 2,
+  mail: 40,
+  web: 35,
+  app: 25,
+  api: 20,
+  shop: 15,
+  blog: 12,
+  dev: 10,
+  cloud: 10,
+  portal: 8,
+  info: 6,
+  support: 8,
+  news: 5,
+  forum: 4,
+  cdn: 3,
+  static: 3,
+  assets: 2,
 };
 
 export interface PlanInput {
@@ -63,7 +63,9 @@ export interface PlannedInbox {
   subdomainFqdn: string;
   localPart: string;
   email: string;
-  personName: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
   format: LocalFormat;
 }
 
@@ -124,6 +126,20 @@ function sampleUnique<T>(arr: T[], count: number): T[] {
   return result;
 }
 
+export function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { firstName: "User", lastName: "" };
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "" };
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 function slugify(s: string): string {
   return s
     .toLowerCase()
@@ -165,7 +181,7 @@ function getPrefixWeight(prefix: string): number {
 }
 
 function selectWeightedPrefix(availablePrefixes: string[]): string {
-  const weights = availablePrefixes.map(p => getPrefixWeight(p));
+  const weights = availablePrefixes.map((p) => getPrefixWeight(p));
   return weightedRandom(availablePrefixes, weights);
 }
 
@@ -182,7 +198,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   const maxAllowed = input.maxSubdomains ?? 15;
 
   let subdomainCount = randInt(minAllowed, maxAllowed);
-  
+
   if (subdomainCount > prefixes.length) subdomainCount = prefixes.length;
 
   const chosenPrefixes = sampleUnique(prefixes, subdomainCount);
@@ -195,7 +211,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
   const globalSeen = new Set<string>();
   const inboxes: PlannedInbox[] = [];
   const subdomainDistribution: Record<string, number> = {};
-  
+
   let namePool = [...shuffledNames];
   let formatPool = [...shuffledFormats];
 
@@ -243,7 +259,7 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
             candidate = `${base}_${suffix}`;
             suffix += randInt(1, 3);
         }
-        
+
         if (suffix > 999) {
           candidate = `${base}${randInt(1000, 9999)}`;
           break;
@@ -254,12 +270,16 @@ export function planDomain(domain: string, input: PlanInput): DomainPlan {
       subSeen.add(candidate);
       globalSeen.add(`${candidate}@${fqdn}`);
 
+      const nameParts = splitFullName(personName);
+
       inboxes.push({
         subdomainPrefix: prefix,
         subdomainFqdn: fqdn,
         localPart: candidate,
         email: `${candidate}@${fqdn}`,
-        personName,
+        fullName: personName,
+        firstName: nameParts.firstName,
+        lastName: nameParts.lastName,
         format: fmt,
       });
     }

@@ -68,7 +68,12 @@ function MatrixAnimation() {
     />
   );
 }
-import { addDomainsWizardAction, listDomainBatches, validateDomainsAgainstZones, listDomains } from "@/server/domains";
+import {
+  addDomainsWizardAction,
+  listDomainBatches,
+  validateDomainsAgainstZones,
+  listDomains,
+} from "@/server/domains";
 import { listServers } from "@/server/servers";
 import { listJobTemplates, saveJobTemplate, deleteJobTemplate } from "@/server/jobs";
 import {
@@ -82,7 +87,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Loader2, Plus, Trash2, Wand2, Save, FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
@@ -115,14 +126,20 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const [domainList, setDomainList] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [newTemplateName, setNewTemplateName] = useState("");
-  
+
   // Per-domain rows
   const [domainRows, setDomainRows] = useState<DomainRow[]>([]);
-  const [validationResults, setValidationResults] = useState<{ name: string; valid: boolean; zoneId: string | null }[]>([]);
+  const [validationResults, setValidationResults] = useState<
+    { name: string; valid: boolean; zoneId: string | null }[]
+  >([]);
 
   // Global settings
-  const [prefixesText, setPrefixesText] = useState("mail\nweb\napp\ndev\napi\nshop\nblog\nnews\ninfo\nsupport\ncloud\nportal");
-  const [namesText, setNamesText] = useState("John\nMichael\nDavid\nChris\nJames\nRobert\nEmily\nSarah\nJessica\nEmma\nLinda\nMary");
+  const [prefixesText, setPrefixesText] = useState(
+    "mail\nweb\napp\ndev\napi\nshop\nblog\nnews\ninfo\nsupport\ncloud\nportal",
+  );
+  const [namesText, setNamesText] = useState(
+    "John\nMichael\nDavid\nChris\nJames\nRobert\nEmily\nSarah\nJessica\nEmma\nLinda\nMary",
+  );
 
   // Global range inputs
   const [minSubdomains, setMinSubdomains] = useState(3);
@@ -149,7 +166,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   });
 
   const saveTemplateMutation = useMutation({
-    mutationFn: (data: { name: string; subdomainPrefixes: string[]; personNames: string[] }) => 
+    mutationFn: (data: { name: string; subdomainPrefixes: string[]; personNames: string[] }) =>
       saveJobTemplate({ data }),
     onSuccess: (res: any) => {
       if (res.error) {
@@ -189,11 +206,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         onOpenChange(false);
         resetForm();
 
-        qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains() }).then((domains: any) => {
-          if (domains && domains.length > 0) {
-            navigate({ to: "/domains/$id", params: { id: domains[0].id } });
-          }
-        });
+        qc.fetchQuery({ queryKey: ["domains", "all"], queryFn: () => listDomains() }).then(
+          (domains: any) => {
+            if (domains && domains.length > 0) {
+              navigate({ to: "/domains/$id", params: { id: domains[0].id } });
+            }
+          },
+        );
       }
     },
     onError: (err) => {
@@ -272,12 +291,14 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     }
 
     setPlannedResults(results);
-    setDomainRows(prev => prev.map((row, i) => ({
-      ...row,
-      plannedSubdomainCount: results[i]?.subdomainCount,
-      plannedInboxCount: results[i]?.totalInboxes,
-      plannedDistribution: results[i] ? Object.values(results[i].subdomainDistribution) : [],
-    })));
+    setDomainRows((prev) =>
+      prev.map((row, i) => ({
+        ...row,
+        plannedSubdomainCount: results[i]?.subdomainCount,
+        plannedInboxCount: results[i]?.totalInboxes,
+        plannedDistribution: results[i] ? Object.values(results[i].subdomainDistribution) : [],
+      })),
+    );
   };
 
   const handleNext = () => {
@@ -293,12 +314,14 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         toast.error("Please enter at least one domain");
         return;
       }
-      setDomainRows(domains.map(d => ({
-        domain: d,
-        ipAddress: servers[0]?.ipAddress || "1.2.3.4",
-        sshUser: servers[0]?.sshUser || "root",
-        sshPassword: "",
-      })));
+      setDomainRows(
+        domains.map((d) => ({
+          domain: d,
+          ipAddress: servers[0]?.ipAddress || "1.2.3.4",
+          sshUser: servers[0]?.sshUser || "root",
+          sshPassword: "",
+        })),
+      );
       setStep(2);
     } else if (step === 2) {
       planAllDomains();
@@ -307,7 +330,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   };
 
   const updateRow = (index: number, field: string, value: any) => {
-    setDomainRows(prev => {
+    setDomainRows((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
       return next;
@@ -324,7 +347,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     addMutation.mutate({
       batchName: batchName || `Batch ${new Date().toLocaleDateString()}`,
       templateId: selectedTemplateId || "default",
-      rows: domainRows.map(row => ({
+      rows: domainRows.map((row) => ({
         ...row,
         inboxCount: row.plannedInboxCount || 0,
       })),
@@ -350,8 +373,11 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
               </div>
             </div>
             <div className="flex gap-2">
-              {[0, 1, 2, 3].map(s => (
-                <div key={s} className={`h-1.5 w-8 rounded-full transition-colors ${s <= step ? 'bg-[#4DB584]' : 'bg-white/10'}`} />
+              {[0, 1, 2, 3].map((s) => (
+                <div
+                  key={s}
+                  className={`h-1.5 w-8 rounded-full transition-colors ${s <= step ? "bg-[#4DB584]" : "bg-white/10"}`}
+                />
               ))}
             </div>
           </div>
@@ -364,7 +390,9 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 <FolderOpen className="h-5 w-5 text-blue-500" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-sm text-gray-900">Load Template (Optional)</h3>
-                  <p className="text-xs text-gray-500 mt-1">Select a saved template or continue with defaults</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select a saved template or continue with defaults
+                  </p>
                 </div>
                 <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                   <SelectTrigger className="w-48 rounded-xl">
@@ -405,7 +433,8 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 <div>
                   <h3 className="font-semibold text-gray-900 text-sm">Planning Configuration</h3>
                   <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                    Our AI planner generates unique, natural-looking inboxes. Save your prefixes and names as a template for future use.
+                    Our AI planner generates unique, natural-looking inboxes. Save your prefixes and
+                    names as a template for future use.
                   </p>
                 </div>
               </div>
@@ -414,8 +443,12 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
-                      <Label className="text-gray-900 font-bold text-sm tracking-tight">Subdomain Prefixes</Label>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Used for mail, tracking, and web subdomains</p>
+                      <Label className="text-gray-900 font-bold text-sm tracking-tight">
+                        Subdomain Prefixes
+                      </Label>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Used for mail, tracking, and web subdomains
+                      </p>
                     </div>
                     <Button
                       variant="ghost"
@@ -436,15 +469,20 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
-                      <Label className="text-gray-900 font-bold text-sm tracking-tight">Pool of Names</Label>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Assigned randomly to generated inboxes</p>
+                      <Label className="text-gray-900 font-bold text-sm tracking-tight">
+                        Pool of Full Names
+                      </Label>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        Enter full names (e.g., John Smith). They will be split into first and last
+                        names
+                      </p>
                     </div>
                   </div>
                   <Textarea
                     value={namesText}
                     onChange={(e) => setNamesText(e.target.value)}
                     className="text-xs h-36 rounded-[1.5rem] border-gray-100 bg-gray-50/50 p-4 focus:bg-white transition-all leading-relaxed resize-none shadow-inner"
-                    placeholder="John&#10;Mary&#10;Michael..."
+                    placeholder="John Smith&#10;Mary Johnson&#10;Michael Brown..."
                   />
                 </div>
               </div>
@@ -465,9 +503,18 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                       className="rounded-xl mb-4"
                     />
                     <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" onClick={() => setSavingTemplate(false)}>Cancel</Button>
-                      <Button onClick={handleSaveTemplate} disabled={saveTemplateMutation.isPending}>
-                        {saveTemplateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      <Button variant="ghost" onClick={() => setSavingTemplate(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSaveTemplate}
+                        disabled={saveTemplateMutation.isPending}
+                      >
+                        {saveTemplateMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Save className="h-4 w-4" />
+                        )}
                         Save Template
                       </Button>
                     </div>
@@ -491,7 +538,9 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-end">
                   <div className="flex flex-col">
-                    <Label className="text-gray-900 font-bold text-sm tracking-tight">Domains List</Label>
+                    <Label className="text-gray-900 font-bold text-sm tracking-tight">
+                      Domains List
+                    </Label>
                     <p className="text-[10px] text-gray-400 mt-0.5">Enter one domain per line</p>
                   </div>
                   <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-2 py-0.5 rounded-lg">
@@ -511,22 +560,28 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     required
                   />
                   <div className="absolute right-4 top-4">
-                    {validateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+                    {validateMutation.isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                    )}
                   </div>
                 </div>
 
                 {validationResults.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-4 bg-gray-50/50 rounded-[1.5rem] border border-gray-100/50">
                     {validationResults.map((v, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${
-                          v.valid 
-                            ? "bg-green-50 text-green-600 border-green-100" 
+                          v.valid
+                            ? "bg-green-50 text-green-600 border-green-100"
                             : "bg-red-50 text-red-600 border-red-100"
                         }`}
                       >
-                        {v.valid ? <div className="h-1.5 w-1.5 rounded-full bg-green-500" /> : <div className="h-1.5 w-1.5 rounded-full bg-red-500" />}
+                        {v.valid ? (
+                          <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                        ) : (
+                          <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        )}
                         {v.name}
                       </div>
                     ))}
@@ -541,12 +596,19 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
               {/* Global Range Inputs */}
               <div className="p-8 pb-4 flex flex-col gap-6">
                 <div className="bg-green-50/50 border border-green-100 rounded-3xl p-6">
-                  <h3 className="font-semibold text-gray-900 text-sm mb-4">Global Range Settings</h3>
-                  <p className="text-[10px] text-gray-500 mb-4">These ranges apply to all domains in the batch. Each domain will randomly get values within these ranges.</p>
+                  <h3 className="font-semibold text-gray-900 text-sm mb-4">
+                    Global Range Settings
+                  </h3>
+                  <p className="text-[10px] text-gray-500 mb-4">
+                    These ranges apply to all domains in the batch. Each domain will randomly get
+                    values within these ranges.
+                  </p>
 
                   <div className="grid grid-cols-2 gap-6">
                     <div className="flex flex-col gap-2">
-                      <Label className="text-gray-900 font-bold text-xs">Subdomains per Domain</Label>
+                      <Label className="text-gray-900 font-bold text-xs">
+                        Subdomains per Domain
+                      </Label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
@@ -599,10 +661,15 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     <p className="text-[10px] text-red-500 mt-2">Max subdomains must be ≥ Min</p>
                   )}
                   {minInboxes < maxSubdomains && (
-                    <p className="text-[10px] text-red-500 mt-2">Min inboxes must be ≥ Max subdomains (to ensure at least 1 inbox per subdomain)</p>
+                    <p className="text-[10px] text-red-500 mt-2">
+                      Min inboxes must be ≥ Max subdomains (to ensure at least 1 inbox per
+                      subdomain)
+                    </p>
                   )}
                   {maxInboxes < minInboxes && (
-                    <p className="text-[10px] text-red-500 mt-2">Max inboxes must be ≥ Min inboxes</p>
+                    <p className="text-[10px] text-red-500 mt-2">
+                      Max inboxes must be ≥ Min inboxes
+                    </p>
                   )}
                 </div>
               </div>
@@ -616,26 +683,32 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
               </div>
               <div className="px-8 flex flex-col gap-3 flex-1 overflow-auto max-h-[350px] scrollbar-thin scrollbar-thumb-gray-200">
                 {domainRows.map((row, i) => (
-                  <div key={i} className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group">
-                    <div className="font-semibold text-gray-700 truncate text-sm px-1" title={row.domain}>
+                  <div
+                    key={i}
+                    className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group"
+                  >
+                    <div
+                      className="font-semibold text-gray-700 truncate text-sm px-1"
+                      title={row.domain}
+                    >
                       {row.domain}
                     </div>
                     <Input
                       value={row.ipAddress}
-                      onChange={(e) => updateRow(i, 'ipAddress', e.target.value)}
+                      onChange={(e) => updateRow(i, "ipAddress", e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-mono transition-all"
                       placeholder="IP Address"
                     />
                     <Input
                       value={row.sshUser}
-                      onChange={(e) => updateRow(i, 'sshUser', e.target.value)}
+                      onChange={(e) => updateRow(i, "sshUser", e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
                       placeholder="User"
                     />
                     <Input
                       type="password"
                       value={row.sshPassword || ""}
-                      onChange={(e) => updateRow(i, 'sshPassword', e.target.value)}
+                      onChange={(e) => updateRow(i, "sshPassword", e.target.value)}
                       className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs transition-all"
                       placeholder="Password"
                     />
@@ -685,10 +758,14 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     {domainRows.map((row, i) => (
                       <tr key={i} className="hover:bg-gray-50/50">
                         <td className="py-3 font-medium text-gray-700">{row.domain}</td>
-                        <td className="py-3 text-center text-gray-600">{row.plannedSubdomainCount || 0}</td>
-                        <td className="py-3 text-center text-gray-600">{row.plannedInboxCount || 0}</td>
+                        <td className="py-3 text-center text-gray-600">
+                          {row.plannedSubdomainCount || 0}
+                        </td>
+                        <td className="py-3 text-center text-gray-600">
+                          {row.plannedInboxCount || 0}
+                        </td>
                         <td className="py-3 text-[10px] text-gray-500 font-mono">
-                          {row.plannedDistribution?.join(', ') || '-'}
+                          {row.plannedDistribution?.join(", ") || "-"}
                         </td>
                       </tr>
                     ))}
@@ -704,7 +781,9 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Total Inboxes</span>
-                  <span className="font-medium">{domainRows.reduce((a, b) => a + (b.plannedInboxCount || 0), 0)}</span>
+                  <span className="font-medium">
+                    {domainRows.reduce((a, b) => a + (b.plannedInboxCount || 0), 0)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Template</span>
@@ -718,12 +797,12 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => step === 0 ? onOpenChange(false) : setStep(step - 1)}
+              onClick={() => (step === 0 ? onOpenChange(false) : setStep(step - 1))}
               className="rounded-2xl text-gray-500"
             >
-              {step === 0 ? 'Cancel' : 'Back'}
+              {step === 0 ? "Cancel" : "Back"}
             </Button>
-            
+
             {step < 3 ? (
               <Button
                 type="button"
@@ -739,7 +818,11 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                 disabled={loading}
                 className="bg-[#4DB584] hover:bg-[#3da070] rounded-2xl px-8 gap-2 shadow-lg shadow-[#4DB584]/20"
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
                 Create Batch
               </Button>
             )}
