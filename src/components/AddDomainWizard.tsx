@@ -158,8 +158,15 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
     queryKey: ["job-templates"],
     queryFn: async () => {
-      const result = await listJobTemplates();
-      return Array.isArray(result) ? result : [];
+      try {
+        const result = await listJobTemplates();
+        const safeResult = Array.isArray(result) ? result : [];
+        console.log("Templates loaded:", safeResult.length, "templates");
+        return safeResult;
+      } catch (err) {
+        console.error("Failed to load templates:", err);
+        return [];
+      }
     },
   });
 
@@ -445,11 +452,12 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="new">+ Create new template</SelectItem>
-                    {templates.map((t: any) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
+                    {Array.isArray(templates) &&
+                      templates.map((t: any) => (
+                        <SelectItem key={t?.id || Math.random()} value={t?.id || ""}>
+                          {t?.name || "Unnamed Template"}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

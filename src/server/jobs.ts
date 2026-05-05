@@ -48,15 +48,21 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
     if (!db) return { error: "Database not connected" };
 
     // Handle both string and array inputs
-    const prefixes = Array.isArray(data.subdomainPrefixes) 
-      ? data.subdomainPrefixes 
-      : typeof data.subdomainPrefixes === 'string'
-        ? data.subdomainPrefixes.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean)
+    const prefixes = Array.isArray(data.subdomainPrefixes)
+      ? data.subdomainPrefixes
+      : typeof data.subdomainPrefixes === "string"
+        ? data.subdomainPrefixes
+            .split(/[\n,;]+/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
         : [];
     const names = Array.isArray(data.personNames)
       ? data.personNames
-      : typeof data.personNames === 'string'
-        ? data.personNames.split(/[\n,;]+/).map((s: string) => s.trim()).filter(Boolean)
+      : typeof data.personNames === "string"
+        ? data.personNames
+            .split(/[\n,;]+/)
+            .map((s: string) => s.trim())
+            .filter(Boolean)
         : [];
 
     try {
@@ -119,20 +125,24 @@ export const listJobTemplates = createServerFn({ method: "GET" })
       return templates.map((t: any) => {
         let prefixes: string[] = [];
         let names: string[] = [];
-        
+
         // Handle both text[] (array) and text (JSON string)
         if (Array.isArray(t.subdomainPrefixes)) {
           prefixes = t.subdomainPrefixes;
-        } else if (typeof t.subdomainPrefixes === 'string') {
-          try { prefixes = JSON.parse(t.subdomainPrefixes); } catch {}
+        } else if (typeof t.subdomainPrefixes === "string") {
+          try {
+            prefixes = JSON.parse(t.subdomainPrefixes);
+          } catch {}
         }
-        
+
         if (Array.isArray(t.personNames)) {
           names = t.personNames;
-        } else if (typeof t.personNames === 'string') {
-          try { names = JSON.parse(t.personNames); } catch {}
+        } else if (typeof t.personNames === "string") {
+          try {
+            names = JSON.parse(t.personNames);
+          } catch {}
         }
-        
+
         return {
           ...t,
           subdomainPrefixes: prefixes,
