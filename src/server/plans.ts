@@ -70,8 +70,8 @@ export const regeneratePlan = createServerFn({ method: "POST" })
           totalInboxes: built.totalInboxes,
           subdomainCount: built.subdomainCount,
           status: "planned",
-          prefixesSnapshot: JSON.stringify(data.prefixes),
-          namesSnapshot: JSON.stringify(data.names),
+          prefixesSnapshot: data.prefixes,
+          namesSnapshot: data.names,
         })
         .where(eq(domainPlans.id, existingPlan.id));
       planId = existingPlan.id;
@@ -84,8 +84,8 @@ export const regeneratePlan = createServerFn({ method: "POST" })
           totalInboxes: built.totalInboxes,
           subdomainCount: built.subdomainCount,
           status: "planned",
-          prefixesSnapshot: JSON.stringify(data.prefixes),
-          namesSnapshot: JSON.stringify(data.names),
+          prefixesSnapshot: data.prefixes,
+          namesSnapshot: data.names,
         })
         .returning();
       planId = p.id;

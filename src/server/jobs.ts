@@ -71,8 +71,8 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
           .update(jobTemplates)
           .set({
             name: data.name,
-            subdomainPrefixes: JSON.stringify(prefixes),
-            personNames: JSON.stringify(names),
+            subdomainPrefixes: prefixes,
+            personNames: names,
           })
           .where(and(eq(jobTemplates.id, data.id), eq(jobTemplates.userId, userId)));
         return { id: data.id };
@@ -82,8 +82,8 @@ export const saveJobTemplate = createServerFn({ method: "POST" })
           .values({
             userId,
             name: data.name,
-            subdomainPrefixes: JSON.stringify(prefixes),
-            personNames: JSON.stringify(names),
+            subdomainPrefixes: prefixes,
+            personNames: names,
           })
           .returning();
         return res;
@@ -122,33 +122,12 @@ export const listJobTemplates = createServerFn({ method: "GET" })
       const templates = await db.query.jobTemplates.findMany({
         where: eq(jobTemplates.userId, userId),
       });
-      return templates.map((t: any) => {
-        let prefixes: string[] = [];
-        let names: string[] = [];
-
-        // Handle both text[] (array) and text (JSON string)
-        if (Array.isArray(t.subdomainPrefixes)) {
-          prefixes = t.subdomainPrefixes;
-        } else if (typeof t.subdomainPrefixes === "string") {
-          try {
-            prefixes = JSON.parse(t.subdomainPrefixes);
-          } catch {}
-        }
-
-        if (Array.isArray(t.personNames)) {
-          names = t.personNames;
-        } else if (typeof t.personNames === "string") {
-          try {
-            names = JSON.parse(t.personNames);
-          } catch {}
-        }
-
-        return {
-          ...t,
-          subdomainPrefixes: prefixes,
-          personNames: names,
-        };
-      });
+      return templates.map((t: any) => ({
+        ...t,
+        // Native PG TEXT[] arrays come back as string[] from Drizzle — ensure safety
+        subdomainPrefixes: Array.isArray(t.subdomainPrefixes) ? t.subdomainPrefixes : [],
+        personNames: Array.isArray(t.personNames) ? t.personNames : [],
+      }));
     } catch {
       return [];
     }
