@@ -64,7 +64,7 @@ function JobPipelinePage() {
 
   const handleExportCsv = () => {
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "Domain,Subdomain,Email,Full Name,Server IP,Webmail URL,Mailcow Hostname\n";
+    csvContent += "Domain,Subdomain,Email,Full Name,Server IP,Webmail URL,Mailcow Hostname,Mailcow API URL\n";
 
     domains.forEach((d: any) => {
       const dInboxes = inboxes.filter((i: any) => i.domainId === d.id);
@@ -73,7 +73,8 @@ function JobPipelinePage() {
         const ip = d.ipAddress || "";
         const mailcowHost = d.mailcowHostname || `mail.${d.name}`;
         const webmailUrl = `https://${mailcowHost}`;
-        csvContent += `${d.name},${ib.subdomainFqdn},${ib.email},${name},${ip},${webmailUrl},${mailcowHost}\n`;
+        const apiUrl = `https://${mailcowHost}/api/v1/`;
+        csvContent += `${d.name},${ib.subdomainFqdn},${ib.email},${name},${ip},${webmailUrl},${mailcowHost},${apiUrl}\n`;
       });
     });
 
