@@ -98,6 +98,10 @@ const getDomainSchema = z.object({
 
 const updateDomainSchema = z.object({
   id: z.string().uuid(),
+  name: z.string().min(1).max(255).optional(),
+  ipAddress: z.string().min(1).max(45).optional(),
+  sshUser: z.string().min(1).max(50).optional(),
+  sshPassword: z.string().optional().nullable(),
   cfZoneId: z.string().uuid().optional().nullable(),
   cfAccountId: z.string().uuid().optional().nullable(),
   mailcowHostname: z.string().url().optional().nullable(),

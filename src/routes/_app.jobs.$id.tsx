@@ -5,6 +5,7 @@ import {
   batchPushDnsToCloudflare,
   checkDnsPropagation,
   deleteDomainBatch,
+  updateDomain,
 } from "@/server/domains";
 import { testSshConnection, provisionServer } from "@/server/provisioning";
 import {
@@ -22,6 +23,7 @@ import {
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -202,6 +204,82 @@ function JobPipelinePage() {
 }
 
 // --- STEP 1: VIEW (Original Read-Only View) ---
+function EditableDomainRow({ domain }: { domain: any }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(domain.name);
+  const [ipAddress, setIpAddress] = useState(domain.ipAddress || "");
+  const [sshUser, setSshUser] = useState(domain.sshUser || "");
+  const [sshPassword, setSshPassword] = useState(domain.sshPassword || "");
+  const qc = useQueryClient();
+
+  const updateMut = useMutation({
+    mutationFn: (data: any) => updateDomain({ data }),
+    onSuccess: (res: any) => {
+      if (res.ok) {
+        toast.success("Domain updated");
+        setIsEditing(false);
+        qc.invalidateQueries({ queryKey: ["batch"] });
+      } else {
+        toast.error(res.error || "Failed to update domain");
+      }
+    },
+  });
+
+  const handleSave = () => {
+    updateMut.mutate({ id: domain.id, name, ipAddress, sshUser, sshPassword });
+  };
+
+  if (!isEditing) {
+    return (
+      <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors">
+        <td className="p-4 font-medium text-gray-800">{domain.name}</td>
+        <td className="p-4 font-mono text-xs text-gray-600">{domain.ipAddress || "-"}</td>
+        <td className="p-4 font-mono text-xs text-gray-600">{domain.sshUser || "-"}</td>
+        <td className="p-4 font-mono text-xs text-gray-400 italic">
+          {domain.sshPassword ? "••••••••" : "Not set"}
+        </td>
+        <td className="p-4 text-right">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(true)}
+            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+          >
+            Edit
+          </Button>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-gray-100 last:border-0 bg-blue-50/30">
+      <td className="p-3">
+        <Input value={name} onChange={(e) => setName(e.target.value)} className="h-9 text-sm rounded-xl" />
+      </td>
+      <td className="p-3">
+        <Input value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} className="h-9 text-sm font-mono rounded-xl" />
+      </td>
+      <td className="p-3">
+        <Input value={sshUser} onChange={(e) => setSshUser(e.target.value)} className="h-9 text-sm font-mono rounded-xl" />
+      </td>
+      <td className="p-3">
+        <Input type="password" value={sshPassword} onChange={(e) => setSshPassword(e.target.value)} className="h-9 text-sm font-mono rounded-xl" placeholder="Password" />
+      </td>
+      <td className="p-3 text-right">
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} className="rounded-xl">
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={updateMut.isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white">
+            {updateMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 function ViewStep({
   domains,
   inboxes,
@@ -211,13 +289,6 @@ function ViewStep({
   inboxes: any[];
   records: any[];
 }) {
-  const inboxesByDomain = inboxes.reduce((acc: any, ib: any) => {
-    if (!acc[ib.domainId]) acc[ib.domainId] = {};
-    if (!acc[ib.domainId][ib.subdomainPrefix]) acc[ib.domainId][ib.subdomainPrefix] = [];
-    acc[ib.domainId][ib.subdomainPrefix].push(ib);
-    return acc;
-  }, {});
-
   return (
     <div className="grid gap-6">
       <div className="grid gap-6 md:grid-cols-3">
@@ -232,6 +303,28 @@ function ViewStep({
         <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 flex flex-col gap-2">
           <div className="text-xs font-bold text-gray-400 uppercase">DNS Records</div>
           <div className="text-3xl font-black text-purple-500">{records.length}</div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Domains in Job</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b-2 border-gray-100">
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Domain</th>
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">IP Address</th>
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">SSH User</th>
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider">SSH Password</th>
+                <th className="p-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {domains.map((d) => (
+                <EditableDomainRow key={d.id} domain={d} />
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

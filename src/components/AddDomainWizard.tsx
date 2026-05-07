@@ -749,12 +749,12 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                     key={i}
                     className="grid grid-cols-[1.5fr,1.2fr,0.8fr,0.8fr] gap-4 items-center bg-white p-2 px-3 rounded-xl ring-1 ring-black/[0.03] shadow-sm hover:shadow-md hover:ring-[#4DB584]/20 transition-all group"
                   >
-                    <div
-                      className="font-semibold text-gray-700 truncate text-sm px-1"
-                      title={row.domain}
-                    >
-                      {row.domain}
-                    </div>
+                    <Input
+                      value={row.domain}
+                      onChange={(e) => updateRow(i, "domain", e.target.value)}
+                      className="h-9 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-semibold transition-all"
+                      placeholder="Domain"
+                    />
                     <Input
                       value={row.ipAddress}
                       onChange={(e) => updateRow(i, "ipAddress", e.target.value)}
