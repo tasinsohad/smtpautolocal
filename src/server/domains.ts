@@ -35,6 +35,14 @@ function generateDnsRecords(
   // Root template
   records.push({
     type: "A",
+    name: "@",
+    content: "192.0.2.1",
+    ttl: 1,
+    proxied: true,
+  });
+
+  records.push({
+    type: "A",
     name: "mail",
     content: serverIp,
     ttl: 1,
@@ -52,7 +60,7 @@ function generateDnsRecords(
   records.push({
     type: "TXT",
     name: "_dmarc",
-    content: "v=DMARC1; p=none; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net;",
+    content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net; sp=quarantine; aspf=r; adkim=r",
     ttl: 1,
     proxied: false,
   });
@@ -63,9 +71,9 @@ function generateDnsRecords(
     records.push({
       type: "A",
       name: sub,
-      content: serverIp,
+      content: "192.0.2.1",
       ttl: 1,
-      proxied: false,
+      proxied: true,
     });
 
     records.push({
@@ -86,7 +94,7 @@ function generateDnsRecords(
     records.push({
       type: "TXT",
       name: `_dmarc.${sub}`,
-      content: "v=DMARC1; p=none; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net;",
+      content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net; sp=quarantine; aspf=r; adkim=r",
       ttl: 1,
     });
 
