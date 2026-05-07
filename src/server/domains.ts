@@ -51,14 +51,6 @@ function generateDnsRecords(
 
   records.push({
     type: "TXT",
-    name: "dkim._domainkey",
-    content: "v=DKIM1;k=rsa;t=s;s=email;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3e7Hl6ZXCx09Vj9BGB1LBHMlxstXw68jhcr/xaTXXizPljzCg7p2Otf59g8ZUw2+/9PuKKytZrXB6inKXho09QXUX9gIq070UjvR6aLYBPAL+SVKzkB9HI5r8rb6r/G117bJh0xWeLOXbS86oIPvguN9fJw9C1Nbcb3jtiqeGhvCvkSlwF1E1yriB2thVn/GfqHTVEzhLOR+FFTYHA29OxKoLsBydTqN4774gWpB5lINon/JOIl9EGLvYXueZ4Zf1u7p5Lm9SF2Mu5zPe1yTT826vtwHLKg0cdznwGV094AtGNZvTFuqdT/xi/kQ4movDAI3/rNGC+TQj65ABuTH4QIDAQAB",
-    ttl: 1,
-    proxied: false,
-  });
-
-  records.push({
-    type: "TXT",
     name: "_dmarc",
     content: "v=DMARC1; p=none; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net;",
     ttl: 1,
@@ -119,13 +111,6 @@ function generateDnsRecords(
       name: `_autodiscover._tcp.${sub}`,
       content: `0 443 mail.${domainName}`,
       priority: 0,
-      ttl: 1,
-    });
-
-    records.push({
-      type: "TXT",
-      name: `dkim._domainkey.${sub}`,
-      content: "v=DKIM1;k=rsa;t=s;s=email;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3e7Hl6ZXCx09Vj9BGB1LBHMlxstXw68jhcr/xaTXXizPljzCg7p2Otf59g8ZUw2+/9PuKKytZrXB6inKXho09QXUX9gIq070UjvR6aLYBPAL+SVKzkB9HI5r8rb6r/G117bJh0xWeLOXbS86oIPvguN9fJw9C1Nbcb3jtiqeGhvCvkSlwF1E1yriB2thVn/GfqHTVEzhLOR+FFTYHA29OxKoLsBydTqN4774gWpB5lINon/JOIl9EGLvYXueZ4Zf1u7p5Lm9SF2Mu5zPe1yTT826vtwHLKg0cdznwGV094AtGNZvTFuqdT/xi/kQ4movDAI3/rNGC+TQj65ABuTH4QIDAQAB",
       ttl: 1,
     });
   }
