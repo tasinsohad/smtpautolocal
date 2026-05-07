@@ -235,10 +235,44 @@ export const updateDomain = createServerFn({ method: "POST" })
 
     try {
       const { id, ...rest } = data;
+
+      const oldDomain = await db.query.domains.findFirst({
+        where: and(eq(domains.id, id), eq(domains.userId, userId)),
+      });
+
+      if (!oldDomain) return { ok: false, error: "Domain not found" };
+
       await db
         .update(domains)
         .set(rest)
         .where(and(eq(domains.id, id), eq(domains.userId, userId)));
+
+      if (
+        (rest.ipAddress && rest.ipAddress !== oldDomain.ipAddress) ||
+        (rest.name && rest.name !== oldDomain.name)
+      ) {
+        const plan = await db.query.domainPlans.findFirst({
+          where: eq(domainPlans.domainId, id),
+        });
+        const inboxes = await db.select().from(plannedInboxes).where(eq(plannedInboxes.domainId, id));
+
+        if (plan) {
+          const newName = rest.name || oldDomain.name;
+          const newIp = rest.ipAddress || oldDomain.ipAddress;
+          const newRecords = generateDnsRecords(newName, newIp, { ...plan, inboxes });
+
+          // Delete pending records and recreate them with the new IP/name
+          await db.delete(dnsRecords).where(and(eq(dnsRecords.domainId, id), eq(dnsRecords.status, "pending")));
+
+          const dnsRecordsToInsert = newRecords.map((rec) => ({
+            userId,
+            domainId: id,
+            ...rec,
+          }));
+          await db.insert(dnsRecords).values(dnsRecordsToInsert);
+        }
+      }
+
       return { ok: true };
     } catch (error) {
       return { ok: false, error: String(error) };
