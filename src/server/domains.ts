@@ -27,56 +27,106 @@ interface DnsRecordInput {
 
 function generateDnsRecords(
   domainName: string,
+  serverIp: string,
   plan: DomainPlan,
 ): Omit<DnsRecordInput, "userId" | "domainId">[] {
   const records: Omit<DnsRecordInput, "userId" | "domainId">[] = [];
 
+  // Root template
   records.push({
     type: "A",
-    name: "@",
-    content: "192.0.2.1",
+    name: "mail",
+    content: serverIp,
     ttl: 1,
     proxied: false,
   });
 
   records.push({
-    type: "A",
-    name: "mail",
-    content: "192.0.2.1",
+    type: "TLSA",
+    name: "_25._tcp.mail",
+    content: "3 1 1 548b660bef4641fac42f51f21126622e0b96a63257fd2a29ea1acbc96343867e",
     ttl: 1,
-    proxied: true,
-  });
-
-  records.push({
-    type: "MX",
-    name: "@",
-    content: `mail.${domainName}`,
-    ttl: 1,
-    priority: 10,
+    proxied: false,
   });
 
   records.push({
     type: "TXT",
-    name: "@",
-    content: "v=spf1 mx ~all",
+    name: "dkim._domainkey",
+    content: "v=DKIM1;k=rsa;t=s;s=email;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3e7Hl6ZXCx09Vj9BGB1LBHMlxstXw68jhcr/xaTXXizPljzCg7p2Otf59g8ZUw2+/9PuKKytZrXB6inKXho09QXUX9gIq070UjvR6aLYBPAL+SVKzkB9HI5r8rb6r/G117bJh0xWeLOXbS86oIPvguN9fJw9C1Nbcb3jtiqeGhvCvkSlwF1E1yriB2thVn/GfqHTVEzhLOR+FFTYHA29OxKoLsBydTqN4774gWpB5lINon/JOIl9EGLvYXueZ4Zf1u7p5Lm9SF2Mu5zPe1yTT826vtwHLKg0cdznwGV094AtGNZvTFuqdT/xi/kQ4movDAI3/rNGC+TQj65ABuTH4QIDAQAB",
     ttl: 1,
+    proxied: false,
   });
 
   records.push({
     type: "TXT",
-    name: "dmarc",
-    content: "v=DMARC1; p=quarantine; rua=mailto:dmarc@dmarc.placeholder",
+    name: "_dmarc",
+    content: "v=DMARC1; p=none; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net;",
     ttl: 1,
+    proxied: false,
   });
 
-  const uniqueSubdomains = [...new Set(plan.inboxes.map((ib) => ib.subdomainFqdn))];
+  // Subdomain template
+  const uniqueSubdomains = [...new Set(plan.inboxes.map((ib) => ib.subdomainPrefix))];
   for (const sub of uniqueSubdomains) {
     records.push({
       type: "A",
-      name: sub.split(".")[0],
-      content: "192.0.2.1",
+      name: sub,
+      content: serverIp,
       ttl: 1,
-      proxied: true,
+      proxied: false,
+    });
+
+    records.push({
+      type: "MX",
+      name: sub,
+      content: `mail.${domainName}`,
+      ttl: 1,
+      priority: 10,
+    });
+
+    records.push({
+      type: "TXT",
+      name: sub,
+      content: `v=spf1 ip4:${serverIp} -all`,
+      ttl: 1,
+    });
+
+    records.push({
+      type: "TXT",
+      name: `_dmarc.${sub}`,
+      content: "v=DMARC1; p=none; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net;",
+      ttl: 1,
+    });
+
+    records.push({
+      type: "CNAME",
+      name: `autodiscover.${sub}`,
+      content: `mail.${domainName}`,
+      ttl: 1,
+      proxied: false,
+    });
+
+    records.push({
+      type: "CNAME",
+      name: `autoconfig.${sub}`,
+      content: `mail.${domainName}`,
+      ttl: 1,
+      proxied: false,
+    });
+
+    records.push({
+      type: "SRV",
+      name: `_autodiscover._tcp.${sub}`,
+      content: `0 443 mail.${domainName}`,
+      priority: 0,
+      ttl: 1,
+    });
+
+    records.push({
+      type: "TXT",
+      name: `dkim._domainkey.${sub}`,
+      content: "v=DKIM1;k=rsa;t=s;s=email;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3e7Hl6ZXCx09Vj9BGB1LBHMlxstXw68jhcr/xaTXXizPljzCg7p2Otf59g8ZUw2+/9PuKKytZrXB6inKXho09QXUX9gIq070UjvR6aLYBPAL+SVKzkB9HI5r8rb6r/G117bJh0xWeLOXbS86oIPvguN9fJw9C1Nbcb3jtiqeGhvCvkSlwF1E1yriB2thVn/GfqHTVEzhLOR+FFTYHA29OxKoLsBydTqN4774gWpB5lINon/JOIl9EGLvYXueZ4Zf1u7p5Lm9SF2Mu5zPe1yTT826vtwHLKg0cdznwGV094AtGNZvTFuqdT/xi/kQ4movDAI3/rNGC+TQj65ABuTH4QIDAQAB",
+      ttl: 1,
     });
   }
 
@@ -336,7 +386,7 @@ export const addDomainsWizardAction = createServerFn({ method: "POST" })
 
           await db.insert(plannedInboxes).values(inboxesToInsert);
 
-          const dnsRecordsToInsert = generateDnsRecords(row.domain, plan).map((rec) => ({
+          const dnsRecordsToInsert = generateDnsRecords(row.domain, row.ipAddress, plan).map((rec) => ({
             userId,
             domainId: domain.id,
             ...rec,
@@ -613,8 +663,7 @@ export const checkDnsPropagation = createServerFn({ method: "POST" })
       const aRecords = await dns.resolve4(`mail.${data.domainName}`).catch(() => []);
       const mxRecords = await dns.resolveMx(data.domainName).catch(() => []);
 
-      const success =
-        aRecords.length > 0 && mxRecords.some((mx) => mx.exchange === `mail.${data.domainName}`);
+      const success = aRecords.length > 0;
 
       return { success, aRecords, mxRecords };
     } catch (err) {
