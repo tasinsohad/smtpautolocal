@@ -97,7 +97,7 @@ import {
 import { Loader2, Plus, Trash2, Wand2, Save, FolderOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
-import { parseList, planDomain, randInt, DomainPlan } from "@/lib/planning";
+import { parseList, planDomain, randInt, DomainPlan, generateDnsRecords } from "@/lib/planning";
 
 interface DomainRow {
   domain: string;
@@ -149,6 +149,8 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
 
   // Planned results for preview
   const [plannedResults, setPlannedResults] = useState<DomainPlan[]>([]);
+  const [showDnsPreview, setShowDnsPreview] = useState(false);
+  const [dnsPreviewRecords, setDnsPreviewRecords] = useState<any[]>([]);
 
   const { data: servers = [] } = useQuery({
     queryKey: ["servers"],
@@ -350,6 +352,24 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
     );
   };
 
+  const handlePreviewDns = () => {
+    if (plannedResults.length === 0) {
+      toast.error("Please randomize domains first");
+      return;
+    }
+    const allRecords: any[] = [];
+    for (let i = 0; i < domainRows.length; i++) {
+      const row = domainRows[i];
+      const plan = plannedResults[i];
+      if (plan) {
+        const records = generateDnsRecords(row.domain, row.ipAddress, plan);
+        allRecords.push(...records.map(r => ({ ...r, domain: row.domain })));
+      }
+    }
+    setDnsPreviewRecords(allRecords);
+    setShowDnsPreview(true);
+  };
+
   const handleNext = () => {
     if (step === 0) {
       setStep(1);
@@ -409,6 +429,7 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
         {loading && <MatrixAnimation />}
@@ -804,6 +825,13 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
                   <Wand2 className="h-4 w-4 mr-2" />
                   Re-randomize All
                 </Button>
+                <Button
+                  onClick={handlePreviewDns}
+                  variant="outline"
+                  className="rounded-xl border-blue-500 text-blue-500 hover:bg-blue-500/10 ml-4"
+                >
+                  Preview DNS Records
+                </Button>
               </div>
 
               <div className="overflow-auto max-h-[300px] scrollbar-thin scrollbar-thumb-gray-200">
@@ -892,5 +920,52 @@ export function AddDomainWizard({ open, onOpenChange }: AddDomainWizardProps) {
         </div>
       </DialogContent>
     </Dialog>
+    
+    <Dialog open={showDnsPreview} onOpenChange={setShowDnsPreview}>
+      <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col rounded-2xl p-0">
+        <DialogHeader className="p-6 bg-gray-50 border-b">
+          <DialogTitle>DNS Records Preview</DialogTitle>
+          <p className="text-sm text-gray-500 mt-1">These records will be pushed to Cloudflare</p>
+        </DialogHeader>
+        <div className="flex-1 overflow-auto p-6">
+          <table className="w-full text-sm text-left">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-50">
+              <tr>
+                <th className="px-4 py-3">Domain</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Name</th>
+                <th className="px-4 py-3">Content</th>
+                <th className="px-4 py-3">Proxied</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dnsPreviewRecords.map((r, i) => (
+                <tr key={i} className="border-b last:border-0 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{r.domain}</td>
+                  <td className="px-4 py-3 font-mono">{r.type}</td>
+                  <td className="px-4 py-3 font-mono text-gray-600">{r.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs break-all text-gray-500 max-w-[300px]">{r.content}</td>
+                  <td className="px-4 py-3 text-center">
+                    {r.proxied ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                        Proxied
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        DNS Only
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <DialogFooter className="p-4 bg-gray-50 border-t">
+          <Button onClick={() => setShowDnsPreview(false)}>Close Preview</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
