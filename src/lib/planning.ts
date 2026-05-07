@@ -121,7 +121,7 @@ export function generateDnsRecords(
   records.push({
     type: "TXT",
     name: "_dmarc",
-    content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net; sp=quarantine; aspf=r; adkim=r",
+    content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@connect.nextusdonateglobal.com,mailto:re+oslk3ai5uf6@dmarc.postmarkapp.com; ruf=mailto:re+oslk3ai5uf6@dmarc.postmarkapp.com; sp=quarantine; aspf=r; adkim=r",
     ttl: 1,
     proxied: false,
   });
@@ -155,7 +155,7 @@ export function generateDnsRecords(
     records.push({
       type: "TXT",
       name: `_dmarc.${sub}`,
-      content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:05a6d690d35a4df48cfedcc0c4f04291@dmarc-reports.cloudflare.net; sp=quarantine; aspf=r; adkim=r",
+      content: "v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc@connect.nextusdonateglobal.com,mailto:re+oslk3ai5uf6@dmarc.postmarkapp.com; ruf=mailto:re+oslk3ai5uf6@dmarc.postmarkapp.com; sp=quarantine; aspf=r; adkim=r",
       ttl: 1,
     });
 
